@@ -27,8 +27,10 @@
     "@electron-forge/plugin-fuses": "^7.10.2",
     "@electron-forge/plugin-webpack": "^7.10.2",
     "@electron/fuses": "^1.8.0",
+    "@types/path-browserify": "^1.0.3",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@types/three": "^0.180.0",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "@vercel/webpack-asset-relocator-loader": "^1.7.3",
@@ -40,14 +42,18 @@
     "node-loader": "^2.1.0",
     "style-loader": "^3.3.4",
     "ts-loader": "^9.5.4",
-    "typescript": "~4.5.4"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
+    "events": "^3.3.0",
+    "path-browserify": "^1.0.1",
     "protosprite-core": "^0.1.17",
     "protosprite-three": "^0.1.17",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "three": "^0.180.0"
+    "react-dropzone": "^14.3.8",
+    "three": "^0.180.0",
+    "zustand": "^5.0.8"
   }
 }

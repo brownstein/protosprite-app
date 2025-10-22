@@ -1,0 +1,5 @@
+.renderer {
+  width: 80vw;
+  height: 50vh;
+  image-rendering: pixelated;
+}

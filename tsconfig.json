@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "ES2022",
     "allowJs": true,
-    "jsx": "react",
-    "lib": ["dom"],
+    "jsx": "react-jsx",
+    "lib": ["es2022", "dom", "dom.iterable"],
     "module": "commonjs",
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -12,10 +12,12 @@
     "baseUrl": ".",
     "outDir": "dist",
     "moduleResolution": "node",
+    "isolatedModules": true,
     "resolveJsonModule": true,
+    "strictNullChecks": true,
     "paths": {
       "*": ["node_modules/*"]
-    }
+    },
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
 }
