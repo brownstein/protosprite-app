@@ -37,7 +37,7 @@ window.electron.on("fileLoaded", async ({ nativePath, mimeType, data }) => {
       const sprite = sheet.sprites.at(0);
       if (!sprite) return;
       const sheetThree = await new ProtoSpriteSheetThreeLoader().loadAsync(
-        sheet
+        sheet,
       );
       const spriteThree = sheetThree.getSprite();
       state.onAfterLoad({
@@ -52,6 +52,29 @@ window.electron.on("fileLoaded", async ({ nativePath, mimeType, data }) => {
         currentSpriteThree: spriteThree,
       });
       break;
+    }
+    case "image/aseprite": {
+      const state = useSpriteStore.getState();
+      const sheet = ProtoSpriteSheet.fromArray(data);
+      const sprite = sheet.sprites.at(0);
+      if (!sprite) return;
+      const sheetThree = await new ProtoSpriteSheetThreeLoader().loadAsync(
+        sheet,
+      );
+      const spriteThree = sheetThree.getSprite();
+      state.onAfterLoad({
+        sourceFile: {
+          type: "aseprite",
+          nativePath,
+          protosprite: {
+            rawData: data,
+          },
+        },
+        currentSheet: sheet,
+        currentSprite: sprite,
+        currentSheetThree: sheetThree,
+        currentSpriteThree: spriteThree,
+      });
     }
   }
 });

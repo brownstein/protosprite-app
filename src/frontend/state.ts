@@ -11,6 +11,9 @@ export type ProtospriteSourceFile = {
 export type AsepriteSourceFile = {
   type: "aseprite";
   nativePath: string;
+  protosprite: {
+    rawData: Uint8Array;
+  }
 };
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
