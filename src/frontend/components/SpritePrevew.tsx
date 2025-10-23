@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { useCallback, useEffect, useMemo } from "react";
 import { Scene } from "three";
 
 import { Renderer } from "./Renderer";
@@ -31,7 +33,15 @@ export function SpritePreview() {
 
   return (
     <div className="sprite-preview">
-      <Renderer scene={scene} onBeforeRender={advance} />
+      {currentSpriteThree && (
+        <Renderer scene={scene} onBeforeRender={advance} />
+      )}
+      {!currentSpriteThree && (
+        <div className="missing">
+          <FontAwesomeIcon icon={faFile} className="icon" />
+          <div>Please open a file for preview.</div>
+        </div>
+      )}
     </div>
   );
 }

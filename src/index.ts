@@ -22,7 +22,7 @@ const createWindow = (): void => {
     width: 1024,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-    }
+    },
   });
 
   // and load the index.html of the app.
@@ -70,6 +70,8 @@ ipcMain.on(
   }
 );
 
+let workingFiles: string[];
+
 function readAnyFile(fileName: string) {
   const pathParts = path.parse(fileName);
   switch (pathParts.ext) {
@@ -86,6 +88,7 @@ function readProtospriteFile(fileName: string) {
       console.error("Failed to read protosprite file", err);
       return;
     }
+    workingFiles = [fileName];
     mainWindow?.webContents.send("file-loaded", {
       nativePath: fileName,
       mimeType: "image/protosprite",
@@ -94,3 +97,9 @@ function readProtospriteFile(fileName: string) {
     mainWindow?.setTitle(pathParts.base);
   });
 }
+
+// Handle the browser window informing us that things have loaded. Re-read files.
+// This fixes an issue where hot-reloading on the frontend killed the application state.
+ipcMain.on("reload", () => {
+  workingFiles?.forEach(readAnyFile);
+});

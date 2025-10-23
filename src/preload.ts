@@ -36,6 +36,9 @@ contextBridge.exposeInMainWorld("electron", {
   ) => {
     eventBridge.on(key, callback);
   },
+  handleInitialLoad: () => {
+    ipcRenderer.send("reload");
+  },
   handleDroppedFiles: (files: Iterable<File>) => {
     ipcRenderer.send("files-dropped", {
       fileNames: [...files].map((file) => webUtils.getPathForFile(file)),

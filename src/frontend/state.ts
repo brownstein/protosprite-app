@@ -15,31 +15,74 @@ export type AsepriteSourceFile = {
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
 
+export type TabName = "layers" | "animations";
+
 export type SpriteStoreData = {
   sourceFile?: SourceFile;
+  currentTab: TabName;
   currentSheet?: ProtoSpriteSheet;
   currentSprite?: ProtoSprite;
   currentSheetThree?: ProtoSpriteSheetThree;
   currentSpriteThree?: ProtoSpriteThree;
-  updateSourceFile: (sourceFile: SourceFile | null) => void;
-  updateCurrentSheet: (sheet?: ProtoSpriteSheet | null) => void;
-  updateCurrentSprite: (sprite?: ProtoSprite | null) => void;
-  updateCurrentSheetThree: (sheetThree: ProtoSpriteSheetThree | null) => void;
-  updateCurrentSpriteThree: (spriteThree: ProtoSpriteThree | null) => void;
+  visibleLayerNames?: Set<string>;
+  currentAnimationName?: string;
+  onAfterLoad: (updates: {
+    sourceFile: SourceFile;
+    currentSheet: ProtoSpriteSheet;
+    currentSprite: ProtoSprite;
+    currentSheetThree: ProtoSpriteSheetThree;
+    currentSpriteThree: ProtoSpriteThree;
+  }) => void;
+  setCurrentTab: (tab: TabName) => void;
+  toggleLayer: (layerName: string) => void;
+  toggleAnimationSelected: (animationName: string) => void;
 };
 
-export const initialSpriteStoreData: Partial<SpriteStoreData> = {};
+export const initialSpriteStoreData: Partial<SpriteStoreData> &
+  Pick<SpriteStoreData, "currentTab"> = {
+  currentTab: "layers",
+};
 
 export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
-  updateSourceFile: (sourceFile) =>
-    set((state) => ({ ...state, sourceFile: sourceFile ?? undefined })),
-  updateCurrentSheet: (sheet) =>
-    set((state) => ({ ...state, currentSheet: sheet ?? undefined })),
-  updateCurrentSprite: (sprite) =>
-    set((state) => ({ ...state, currentSprite: sprite ?? undefined })),
-  updateCurrentSheetThree: (sheet) =>
-    set((state) => ({ ...state, currentSheetThree: sheet ?? undefined })),
-  updateCurrentSpriteThree: (sprite) =>
-    set((state) => ({ ...state, currentSpriteThree: sprite ?? undefined })),
+  onAfterLoad: (updates) =>
+    set((state) => ({
+      ...state,
+      ...updates,
+    })),
+  setCurrentTab: (currentTab) =>
+    set((state) => ({
+      ...state,
+      currentTab,
+    })),
+  toggleLayer: (layerName) =>
+    set((state) => {
+      if (!state.currentSprite) return state;
+      const visibleLayerNames = state.visibleLayerNames
+        ? new Set(state.visibleLayerNames)
+        : new Set<string>(state.currentSprite.data.layers.map((l) => l.name));
+      if (visibleLayerNames.has(layerName)) {
+        visibleLayerNames.delete(layerName);
+        state.currentSpriteThree?.hideLayers(layerName);
+      } else {
+        visibleLayerNames.add(layerName);
+        state.currentSpriteThree?.showLayers(layerName);
+      }
+      return {
+        ...state,
+        visibleLayerNames,
+      };
+    }),
+    toggleAnimationSelected: (animationName) => set((state) => {
+      if (!state.currentSpriteThree) return state;
+      let currentAnimationName: string | null = animationName;
+      if (state.currentAnimationName === currentAnimationName) {
+        currentAnimationName = null;
+      }
+      state.currentSpriteThree.gotoAnimation(currentAnimationName);
+      return {
+        ...state,
+        currentAnimationName: currentAnimationName ?? undefined
+      };
+    })
 }));

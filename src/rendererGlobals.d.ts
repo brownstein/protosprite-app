@@ -6,6 +6,7 @@ export type ElectronAPI = {
     key: Key,
     callback: (arg: Parameters<RendererBridgeEvents[Key]>[0]) => void
   ): void;
+  handleInitialLoad: () => void;
   handleDroppedFiles: (files: Iterable<File>) => void;
 };
 

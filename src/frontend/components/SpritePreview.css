@@ -1,7 +1,29 @@
 .sprite-preview {
   display: flex;
+  flex: 0 0;
+  flex-basis: 40vh;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  height: 40vh;
+  width: 100vw;
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  position: relative;
+}
+
+.sprite-preview .missing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+}
+
+.sprite-preview .missing .icon {
+  display: flex;
+  flex: 0;
+  width: 20vw;
+  height: 24vw;
+  aspect-ratio: 1;
+  opacity: 0.25;
 }

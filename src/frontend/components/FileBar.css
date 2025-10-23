@@ -1,6 +1,8 @@
 .file-bar {
   height: 2em;
   display: flex;
+  flex: 0;
+  flex-basis: 2em;
   flex-direction: row;
   align-items: center;
   justify-content: center;

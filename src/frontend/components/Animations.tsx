@@ -7,14 +7,14 @@ import ListItemText from "@mui/material/ListItemText";
 import Checkbox from "@mui/material/Checkbox";
 import { useSpriteStore } from "../state";
 
-export function Layers(): React.ReactNode {
+export function Animations(): React.ReactNode {
   const sprite = useSpriteStore((state) => state.currentSprite);
-  const spriteVisibleLayers = useSpriteStore((state) => state.visibleLayerNames);
-  const toggleLayer = useSpriteStore((state) => state.toggleLayer);
+  const spriteCurrentAnimation = useSpriteStore((state) => state.currentAnimationName);
+  const toggleAnimation = useSpriteStore((state) => state.toggleAnimationSelected);
 
-  const layers = useMemo(() => sprite?.data.layers, [sprite]);
+  const animations = useMemo(() => sprite?.data.animations, [sprite]);
 
-  if (!layers) return null;
+  if (!animations) return null;
 
   return (
     <List
@@ -25,18 +25,18 @@ export function Layers(): React.ReactNode {
         overflowY: "scroll",
       }}
     >
-      {layers.map((layer, i) => (
-        <ListItem key={layer.index} disablePadding>
-          <ListItemButton onClick={() => toggleLayer(layer.name)}>
+      {animations.map((animation, i) => (
+        <ListItem key={i} disablePadding>
+          <ListItemButton onClick={() => toggleAnimation(animation.name)}>
             <ListItemIcon>
               <Checkbox
                 edge="start"
-                checked={!spriteVisibleLayers || spriteVisibleLayers.has(layer.name)}
+                checked={spriteCurrentAnimation === animation.name}
                 tabIndex={-1}
                 disableRipple
               />
             </ListItemIcon>
-            <ListItemText id={layer.name} primary={layer.name} />
+            <ListItemText id={animation.name} primary={animation.name} />
           </ListItemButton>
         </ListItem>
       ))}
