@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import { readFile, writeFileSync } from "fs";
+import os from "os";
 import path from "path";
 import { importAseprite } from "./backend/aseprite";
 import { ProtoSpriteSheet } from "protosprite-core";
@@ -29,6 +30,9 @@ const createWindow = (): void => {
 
   // and load the index.html of the app.
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+  // Hide menu bar on windows.
+  if (os.platform() === "win32") mainWindow.setMenu(null);
 
   // Open the DevTools.
   if (process.env.NODE_ENV === "development") mainWindow.webContents.openDevTools();
