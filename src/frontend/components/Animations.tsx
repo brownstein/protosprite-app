@@ -8,7 +8,7 @@ import Checkbox from "@mui/material/Checkbox";
 import { useSpriteStore } from "../state";
 
 export function Animations(): React.ReactNode {
-  const sprite = useSpriteStore((state) => state.currentSprite);
+  const sprite = useSpriteStore((state) => state.currentSprite?.sprite);
   const spriteCurrentAnimation = useSpriteStore((state) => state.currentAnimationName);
   const toggleAnimation = useSpriteStore((state) => state.toggleAnimationSelected);
 

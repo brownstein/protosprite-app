@@ -10,7 +10,7 @@ import { ProtoSpriteThreeEventTypes } from "protosprite-three/dist";
 
 export function SpritePreview() {
   const currentSpriteThree = useSpriteStore(
-    (store) => store.currentSpriteThree
+    (store) => store.currentSprite?.spriteThree
   );
   const selectedLayers = useSpriteStore(
     (state) => state.selectedLayerNames

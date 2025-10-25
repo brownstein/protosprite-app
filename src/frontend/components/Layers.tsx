@@ -3,7 +3,6 @@ import { Data } from "protosprite-core";
 import Checkbox from "@mui/material/Checkbox";
 import { useSpriteStore } from "../state";
 
-import { adjustHsv } from "../processing/adjustColor";
 import {
   Box,
   Paper,
@@ -15,13 +14,10 @@ import {
 } from "@mui/material";
 
 export function Layers(): React.ReactNode {
-  const sprite = useSpriteStore((state) => state.currentSprite);
-  const sheetThree = useSpriteStore((state) => state.currentSheetThree);
+  const sprite = useSpriteStore((state) => state.currentSprite?.sprite);
+  const sheetThree = useSpriteStore((state) => state.currentSprite?.spriteThree);
   const spriteSelectedLayers = useSpriteStore(
     (state) => state.selectedLayerNames,
-  );
-  const spriteVisibleLayers = useSpriteStore(
-    (state) => state.visibleLayerNames,
   );
   const currentFrame = useSpriteStore((state) => state.currentFrame);
   const toggleLayer = useSpriteStore((state) => state.toggleLayerVisible);
@@ -79,7 +75,6 @@ export function Layers(): React.ReactNode {
                   <Checkbox
                     checked={spriteSelectedLayers?.has(layer.name) ?? false}
                     onChange={() => toggleLayerSelected(layer.name)}
-                    disableRipple
                   />
                 </TableCell>
                 <TableCell>{layer.name}</TableCell>
@@ -94,37 +89,4 @@ export function Layers(): React.ReactNode {
       </Paper>
     </Box>
   );
-
-  // return (
-  //   <List
-  //     sx={{
-  //       width: "100%",
-  //       maxHeight: "100%",
-  //       bgColor: "background.paper",
-  //       overflowY: "scroll",
-  //     }}
-  //   >
-  //     {layers.map((layer) => (
-  //       <ListItem key={layer.index}>
-  //         {/* <ListItemButton onClick={() => toggleLayer(layer.name)} sx={{ width: "40%", flexGrow: 0 }}> */}
-  //           <ListItemIcon>
-  //             <Checkbox
-  //               edge="start"
-  //               checked={!spriteVisibleLayers || spriteVisibleLayers.has(layer.name)}
-  //               onChange={() => toggleLayer(layer.name)}
-  //               disableRipple
-  //             />
-  //           </ListItemIcon>
-  //           <ListItemText id={layer.name} primary={layer.name} />
-  //         {/* </ListItemButton> */}
-  //         <ListItemText>
-  //           {layer.index}
-  //         </ListItemText>
-  //         <ListItemButton onClick={() => adjustHsv(sheetThree, [layer.name], [0, -100, 0])}>
-  //           <ListItemText id={`${layer.name} greyscale`} primary="Greyscale"/>
-  //         </ListItemButton>
-  //       </ListItem>
-  //     ))}
-  //   </List>
-  // );
 }

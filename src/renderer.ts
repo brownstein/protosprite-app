@@ -46,10 +46,12 @@ window.electron.on("fileLoaded", async ({ nativePath, mimeType, data }) => {
           nativePath,
           rawData: data,
         },
-        currentSheet: sheet,
-        currentSprite: sprite,
-        currentSheetThree: sheetThree,
-        currentSpriteThree: spriteThree,
+        sprite: {
+          sheet,
+          sprite,
+          sheetThree,
+          spriteThree,
+        }
       });
       break;
     }
@@ -70,10 +72,12 @@ window.electron.on("fileLoaded", async ({ nativePath, mimeType, data }) => {
             rawData: data,
           },
         },
-        currentSheet: sheet,
-        currentSprite: sprite,
-        currentSheetThree: sheetThree,
-        currentSpriteThree: spriteThree,
+        sprite: {
+          sheet,
+          sprite,
+          sheetThree,
+          spriteThree,
+        }
       });
     }
   }
