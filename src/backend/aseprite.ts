@@ -48,14 +48,21 @@ export async function findAsperiteBinary() {
     }
   }
 
+  const failedPaths: string[] = [];
   for (const knownPath of knownPaths) {
     const pathExists = fs.existsSync(knownPath);
     if (pathExists) {
       // Known bug in path resolution.
+      if (os.platform() === "win32") return knownPath;
       return knownPath.replaceAll(" ", "\\ ");
     } else {
-      console.warn("Aseprite binary not found at path", knownPath);
+      failedPaths.push(knownPath);
     }
+  }
+
+  console.warn("Unable to locate Aseprite binary at paths:")
+  for (const failedPath of failedPaths) {
+    console.warn("-", failedPath);
   }
 
   return null;
@@ -103,7 +110,21 @@ export async function importAseprite(sourceFilePath: string) {
     '--filename-format "({layer}) {frame}"',
     workFileName,
   ];
-  childProcess.execSync(`${asepriteBinPath} ${asepriteArgs.join(" ")}`);
+  if (os.platform() === "win32") {
+    try {
+      const exePathParts = path.parse(asepriteBinPath);
+      childProcess.execFileSync(exePathParts.base, asepriteArgs, {
+        cwd: exePathParts.dir,
+        shell: true,
+        timeout: 10000
+      });
+    } catch (err) {
+      console.error("Failed to spawn Aseprite.exe", err);
+      return null;
+    }
+  } else {
+    childProcess.execSync(`${asepriteBinPath} ${asepriteArgs.join(" ")}`);
+  }
   const sheetJsonData = JSON.parse(
     fs.readFileSync(workExportSheetName, { encoding: "utf8" }),
   );
