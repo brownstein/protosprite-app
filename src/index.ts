@@ -68,15 +68,15 @@ ipcMain.on(
       filters: [
         {
           name: "All compatible files",
-          extensions: [".ase", ".aseprite", ".prs"]
+          extensions: ["ase", "aseprite", "prs"]
         },
         {
           name: "Aseprite",
-          extensions: [".ase", ".aseprite"]
+          extensions: ["ase", "aseprite"]
         },
         {
           name: "Protosprite",
-          extensions: [".prs"]
+          extensions: ["prs"]
         }
       ]
     });
@@ -161,7 +161,7 @@ ipcMain.on("save-file", async (
     defaultPath: workingFiles.find((f => f.endsWith(".prs"))),
     filters: [{
       name: "Protosprite Files",
-      extensions: [".prs"] 
+      extensions: ["prs"] 
     }]
   });
   const filePath = saveDialogVal.filePath;
