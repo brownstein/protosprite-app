@@ -13,12 +13,12 @@ export type AsepriteSourceFile = {
   nativePath: string;
   protosprite: {
     rawData: Uint8Array;
-  }
+  };
 };
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
 
-export type TabName = "layers" | "animations";
+export type TabName = "layers" | "animations" | "processing" | "file";
 
 export type SpriteStoreData = {
   sourceFile?: SourceFile;
@@ -27,8 +27,10 @@ export type SpriteStoreData = {
   currentSprite?: ProtoSprite;
   currentSheetThree?: ProtoSpriteSheetThree;
   currentSpriteThree?: ProtoSpriteThree;
+  selectedLayerNames?: Set<string>;
   visibleLayerNames?: Set<string>;
   currentAnimationName?: string;
+  currentFrame?: number;
   onAfterLoad: (updates: {
     sourceFile: SourceFile;
     currentSheet: ProtoSpriteSheet;
@@ -37,8 +39,11 @@ export type SpriteStoreData = {
     currentSpriteThree: ProtoSpriteThree;
   }) => void;
   setCurrentTab: (tab: TabName) => void;
-  toggleLayer: (layerName: string) => void;
+  toggleAllLayersSelected: () => void;
+  toggleLayerSelected: (layerName: string) => void;
+  toggleLayerVisible: (layerName: string) => void;
   toggleAnimationSelected: (animationName: string) => void;
+  setCurrentFrame: (frame: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -58,7 +63,40 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       ...state,
       currentTab,
     })),
-  toggleLayer: (layerName) =>
+  toggleAllLayersSelected: () =>
+    set((state) => {
+      const allSelected =
+        state.selectedLayerNames?.size === state.currentSprite?.countLayers();
+      if (allSelected) {
+        return {
+          ...state,
+          selectedLayerNames: new Set(),
+        };
+      }
+      return {
+        ...state,
+        selectedLayerNames: new Set(
+          state.currentSprite?.data.layers.map((layer) => layer.name),
+        ),
+      };
+    }),
+  toggleLayerSelected: (layerName) =>
+    set((state) => {
+      if (!state.currentSprite) return state;
+      const selectedLayerNames = state.selectedLayerNames
+        ? new Set(state.selectedLayerNames)
+        : new Set<string>();
+      if (selectedLayerNames.has(layerName)) {
+        selectedLayerNames.delete(layerName);
+      } else {
+        selectedLayerNames.add(layerName);
+      }
+      return {
+        ...state,
+        selectedLayerNames,
+      };
+    }),
+  toggleLayerVisible: (layerName) =>
     set((state) => {
       if (!state.currentSprite) return state;
       const visibleLayerNames = state.visibleLayerNames
@@ -76,7 +114,8 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         visibleLayerNames,
       };
     }),
-    toggleAnimationSelected: (animationName) => set((state) => {
+  toggleAnimationSelected: (animationName) =>
+    set((state) => {
       if (!state.currentSpriteThree) return state;
       let currentAnimationName: string | null = animationName;
       if (state.currentAnimationName === currentAnimationName) {
@@ -85,7 +124,12 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       state.currentSpriteThree.gotoAnimation(currentAnimationName);
       return {
         ...state,
-        currentAnimationName: currentAnimationName ?? undefined
+        currentAnimationName: currentAnimationName ?? undefined,
       };
-    })
+    }),
+  setCurrentFrame: (frame) =>
+    set((state) => ({
+      ...state,
+      currentFrame: frame,
+    })),
 }));

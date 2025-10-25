@@ -1,15 +1,22 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFile } from "@fortawesome/free-regular-svg-icons";
 import { useCallback, useEffect, useMemo } from "react";
-import { Scene } from "three";
+import { Color, Scene } from "three";
 
 import { Renderer } from "./Renderer";
 import { useSpriteStore } from "../state";
 import "./SpritePreview.css";
+import { ProtoSpriteThreeEventTypes } from "protosprite-three/dist";
 
 export function SpritePreview() {
   const currentSpriteThree = useSpriteStore(
     (store) => store.currentSpriteThree
+  );
+  const selectedLayers = useSpriteStore(
+    (state) => state.selectedLayerNames
+  );
+  const setCurrentFrame = useSpriteStore(
+    (store) => store.setCurrentFrame
   );
   const scene = useMemo(() => new Scene(), []);
 
@@ -23,6 +30,24 @@ export function SpritePreview() {
       if (currentSpriteThree) scene.remove(currentSpriteThree?.mesh);
     };
   }, [currentSpriteThree, scene]);
+
+  // Link current frame to store.
+  useEffect(() => {
+    const onFrameChange = (arg: ProtoSpriteThreeEventTypes["animationFrameSwapped"]) => {
+      setCurrentFrame(arg.to);
+    };
+    currentSpriteThree?.events.on("animationFrameSwapped", onFrameChange);
+    setCurrentFrame(currentSpriteThree?.data.animationState.currentFrame ?? 0);
+    return () => {
+      currentSpriteThree?.events.off("animationFrameSwapped", onFrameChange);
+    }
+  }, [currentSpriteThree, setCurrentFrame]);
+
+  // Highlight layer selection.
+  useEffect(() => {
+    currentSpriteThree?.outlineAllLayers(0, new Color(), 0);
+    currentSpriteThree?.outlineLayers(1, new Color(1, 1, 1), 1, [...selectedLayers ?? []]);
+  }, [currentSpriteThree, selectedLayers]);
 
   const advance = useCallback(
     (ms: number) => {
