@@ -44,4 +44,11 @@ contextBridge.exposeInMainWorld("electron", {
       fileNames: [...files].map((file) => webUtils.getPathForFile(file)),
     });
   },
+  handleLoadFileRequest: () => ipcRenderer.send("load-file"),
+  handleSaveFileRequest: (fileName: string, fileContents: Uint8Array) => {
+    ipcRenderer.send("save-file", {
+      fileName,
+      fileContents
+    });
+  }
 } satisfies ElectronAPI);

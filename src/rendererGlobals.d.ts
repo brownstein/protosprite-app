@@ -8,6 +8,8 @@ export type ElectronAPI = {
   ): void;
   handleInitialLoad: () => void;
   handleDroppedFiles: (files: Iterable<File>) => void;
+  handleLoadFileRequest: () => void;
+  handleSaveFileRequest: (fileName: string, fileContents: Uint8Array) => void;
 };
 
 declare global {
