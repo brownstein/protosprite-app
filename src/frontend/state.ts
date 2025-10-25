@@ -1,6 +1,8 @@
-import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core/dist/src/core";
+import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
 import { create } from "zustand";
+import { ProcessingStep } from "./processing/systemTypes";
+import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
 
 export type ProtospriteSourceFile = {
   type: "protosprite";
@@ -36,6 +38,7 @@ export type SpriteStoreData = {
   currentFrame?: number;
   selectedLayerNames?: Set<string>;
   visibleLayerNames?: Set<string>;
+  modifiers: ProcessingStep[];
   onAfterLoad: (updates: {
     sourceFile: SourceFile;
     sprite: SpriteWithData;
@@ -46,31 +49,35 @@ export type SpriteStoreData = {
   toggleLayerVisible: (layerName: string) => void;
   toggleAnimationSelected: (animationName: string) => void;
   setCurrentFrame: (frame: number) => void;
+  pushModifier: (modifier: ProcessingStep) => void;
+  updateModifier: (index: number, modifier: ProcessingStep) => void;
+  removeModifier: (index: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
-  Pick<SpriteStoreData, "currentTab"> = {
+  Pick<SpriteStoreData, "currentTab" | "modifiers"> = {
   currentTab: "layers",
+  modifiers: [],
 };
 
-export const useSpriteStore = create<SpriteStoreData>()((set) => ({
+export const useSpriteStore = create<SpriteStoreData>()((set, get) => ({
   ...initialSpriteStoreData,
   onAfterLoad: (updates) =>
-    set((state) => ({
-      ...state,
+    set(() => ({
       sourceFile: updates.sourceFile,
       baseSprite: updates.sprite,
-      currentSprite: updates.sprite
+      currentSprite: updates.sprite,
+      modifiers: []
     })),
   setCurrentTab: (currentTab) =>
-    set((state) => ({
-      ...state,
+    set(() => ({
       currentTab,
     })),
   toggleAllLayersSelected: () =>
     set((state) => {
       const allSelected =
-        state.selectedLayerNames?.size === state.currentSprite?.sprite?.countLayers();
+        state.selectedLayerNames?.size ===
+        state.currentSprite?.sprite?.countLayers();
       if (allSelected) {
         return {
           ...state,
@@ -78,7 +85,6 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         };
       }
       return {
-        ...state,
         selectedLayerNames: new Set(
           state.currentSprite?.sprite?.data.layers.map((layer) => layer.name),
         ),
@@ -96,7 +102,6 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         selectedLayerNames.add(layerName);
       }
       return {
-        ...state,
         selectedLayerNames,
       };
     }),
@@ -105,7 +110,9 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       if (!state.currentSprite) return state;
       const visibleLayerNames = state.visibleLayerNames
         ? new Set(state.visibleLayerNames)
-        : new Set<string>(state.currentSprite.sprite.data.layers.map((l) => l.name));
+        : new Set<string>(
+            state.currentSprite.sprite.data.layers.map((l) => l.name),
+          );
       if (visibleLayerNames.has(layerName)) {
         visibleLayerNames.delete(layerName);
         state.currentSprite?.spriteThree.hideLayers(layerName);
@@ -114,7 +121,6 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         state.currentSprite.spriteThree.showLayers(layerName);
       }
       return {
-        ...state,
         visibleLayerNames,
       };
     }),
@@ -127,13 +133,93 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       }
       state.currentSprite.spriteThree.gotoAnimation(currentAnimationName);
       return {
-        ...state,
         currentAnimationName: currentAnimationName ?? undefined,
       };
     }),
   setCurrentFrame: (frame) =>
-    set((state) => ({
-      ...state,
+    set(() => ({
       currentFrame: frame,
     })),
+  // TODO: refactor duplicate async logic.
+  pushModifier: async (modifier) => {
+    const currentState = get();
+    const modifiers = [...currentState.modifiers, modifier];
+    set(() => ({ modifiers }));
+    if (!currentState.baseSprite) return;
+    const updatedData = await processDataSteps(
+      {
+        sheet: currentState.baseSprite.sheet.data,
+        sprite: currentState.baseSprite.sprite.data,
+      },
+      modifiers,
+    );
+    if (get().modifiers !== modifiers || !updatedData) return;
+    const threeData = await produceProtoSpriteThree(updatedData);
+    if (get().modifiers !== modifiers || !threeData) return;
+    set(() => ({
+      currentSprite: {
+        sprite: threeData.spriteThree.data.sprite,
+        spriteThree: threeData.spriteThree,
+        sheet: threeData.sheetThree.sheet,
+        sheetThree: threeData.sheetThree,
+      },
+    }));
+  },
+  // TODO: refactor duplicate async logic.
+  updateModifier: async (index, modifier) => {
+    const currentState = get();
+    const modifiers = [
+      ...currentState.modifiers.slice(0, index),
+      modifier,
+      ...currentState.modifiers.slice(index + 1),
+    ];
+    set(() => ({ modifiers }));
+    if (!currentState.baseSprite) return;
+    const updatedData = await processDataSteps(
+      {
+        sheet: currentState.baseSprite.sheet.data,
+        sprite: currentState.baseSprite.sprite.data,
+      },
+      modifiers,
+    );
+    if (get().modifiers !== modifiers || !updatedData) return;
+    const threeData = await produceProtoSpriteThree(updatedData);
+    if (get().modifiers !== modifiers || !threeData) return;
+    set(() => ({
+      currentSprite: {
+        sprite: threeData.spriteThree.data.sprite,
+        spriteThree: threeData.spriteThree,
+        sheet: threeData.sheetThree.sheet,
+        sheetThree: threeData.sheetThree,
+      },
+    }));
+  },
+  // TODO: refactor duplicate async logic.
+  removeModifier: async (index) => {
+    const currentState = get();
+    const modifiers = [
+      ...currentState.modifiers.slice(0, index),
+      ...currentState.modifiers.slice(index + 1),
+    ];
+    set(() => ({ modifiers }));
+    if (!currentState.baseSprite) return;
+    const updatedData = await processDataSteps(
+      {
+        sheet: currentState.baseSprite.sheet.data,
+        sprite: currentState.baseSprite.sprite.data,
+      },
+      modifiers,
+    );
+    if (get().modifiers !== modifiers || !updatedData) return;
+    const threeData = await produceProtoSpriteThree(updatedData);
+    if (get().modifiers !== modifiers || !threeData) return;
+    set(() => ({
+      currentSprite: {
+        sprite: threeData.spriteThree.data.sprite,
+        spriteThree: threeData.spriteThree,
+        sheet: threeData.sheetThree.sheet,
+        sheetThree: threeData.sheetThree,
+      },
+    }));
+  },
 }));

@@ -1,25 +1,26 @@
 import Color, { ColorInstance } from "color";
 import { Jimp } from "jimp";
+import { Base64 } from "js-base64";
 import { Data } from "protosprite-core";
 
 export type JimpData = Awaited<ReturnType<typeof Jimp.read>>;
 
 export function getPngData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
-  let pixelSourceBuffer: Uint8Array | undefined;
+  let pixelSourceArr: Uint8Array | undefined;
   if (Data.isEmbeddedSpriteSheetData(spriteData.pixelSource)) {
-    pixelSourceBuffer = spriteData.pixelSource.pngData;
+    pixelSourceArr = spriteData.pixelSource.pngData;
   }
   // TODO(rbrownstein): update protosprite-core to explicitly surface presence of parent sheet data.
   if (Data.isEmbeddedSpriteSheetData(sheetData.pixelSource)) {
-    pixelSourceBuffer = sheetData.pixelSource.pngData;
+    pixelSourceArr = sheetData.pixelSource.pngData;
   }
-  return pixelSourceBuffer ?? null;
+  return pixelSourceArr ?? null;
 }
 
 export async function getJimpData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
-  const pixelSourceBuffer = getPngData(sheetData, spriteData);
-  if (!pixelSourceBuffer) return null;
-  const stringifiedBuffer = `data:image/png;base64,${Buffer.from(pixelSourceBuffer).toString("base64")}`;
+  const pixelSourceArr = getPngData(sheetData, spriteData);
+  if (!pixelSourceArr) return null;
+  const stringifiedBuffer = `data:image/png;base64,${Base64.fromUint8Array(pixelSourceArr)}`;
   return Jimp.read(stringifiedBuffer, {
     "image/png": {}
   });
