@@ -7,7 +7,6 @@ import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 
 import {
   Box,
-  Button,
   Paper,
   Table,
   TableBody,
@@ -37,7 +36,6 @@ export function Layers(): React.ReactNode {
   const toggleAllLayersSelected = useSpriteStore(
     (state) => state.toggleAllLayersSelected,
   );
-  const pushModifier = useSpriteStore((state) => state.pushModifier);
 
   const layers = useMemo(() => sprite?.data.layers, [sprite]);
   const layerFrames = useMemo(() => {
@@ -62,7 +60,7 @@ export function Layers(): React.ReactNode {
   if (!layers || !sheetThree) return null;
 
   return (
-    <Box sx={{ width: "50%", overflow: "scroll" }}>
+    <Box sx={{ width: "calc(50% - 0.5em)", height: "100%", overflow: "auto" }}>
       <Paper>
         <Table size="small" stickyHeader>
           <TableHead>
@@ -93,7 +91,6 @@ export function Layers(): React.ReactNode {
               <TableCell>Layer Name</TableCell>
               <TableCell>Index</TableCell>
               <TableCell>Z-Index</TableCell>
-              <TableCell>Modifiers</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -117,21 +114,6 @@ export function Layers(): React.ReactNode {
                 <TableCell>{layer.index}</TableCell>
                 <TableCell>
                   {layerFrames.get(layer.index)?.zIndex ?? 0}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    onClick={() =>
-                      pushModifier({
-                        layerNames: [layer.name],
-                        type: "hsv",
-                        hue: Math.random() * 255,
-                        saturation: (Math.random() - 0.5) * 2,
-                        value: Math.random() - 0.5,
-                      })
-                    }
-                  >
-                    Adjust
-                  </Button>
                 </TableCell>
               </TableRow>
             ))}

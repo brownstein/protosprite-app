@@ -20,7 +20,7 @@ export type AsepriteSourceFile = {
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
 
-export type TabName = "layers" | "animations" | "processing" | "file";
+export type TabName = "layers" | "animations" | "file";
 
 export type SpriteWithData = {
   sheet: ProtoSpriteSheet;

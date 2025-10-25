@@ -13,6 +13,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { useSpriteStore } from "../state";
 import { FileOperations } from "./FileOperations";
+import { Modifiers } from "./Modifiers";
 
 const darkTheme = createTheme({
   palette: {
@@ -37,12 +38,16 @@ export function App(): React.ReactElement {
           >
             <Tab label="Layers" value="layers" />
             <Tab label="Animations" value="animations" />
-            <Tab label="Processing" value="processing" />
-            <Tab label="file" value="file" />
+            <Tab label="File" value="file" />
           </Tabs>
         </Box>
         <div className="config">
-          {currentTab === "layers" && <Layers />}
+          {currentTab === "layers" && (
+            <div className="config-row">
+              <Layers />
+              <Modifiers />
+            </div>
+          )}
           {currentTab === "animations" && <Animations />}
           {currentTab === "file" && <FileOperations />}
         </div>
