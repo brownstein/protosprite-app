@@ -3,7 +3,7 @@ import {
   getJimpData,
   setJimpData,
 } from "./adjustColor";
-import { HSVProcessingStep, StepData, StepProcessor } from "./system";
+import { HSVProcessingStep, StepData, StepProcessor } from "./systemTypes";
 
 export const HSVStepProcessor: StepProcessor<HSVProcessingStep> = {
   type: "hsv",
@@ -31,6 +31,7 @@ export const HSVStepProcessor: StepProcessor<HSVProcessingStep> = {
     });
     const sheetClone = data.sheet.clone();
     const spriteClone = data.sprite.clone();
+    sheetClone.sprites[0] = spriteClone;
     return (await setJimpData(sheetClone, spriteClone, jimpData))
       ? {
           sheet: sheetClone,

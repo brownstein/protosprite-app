@@ -1,27 +1,18 @@
-import { Data } from "protosprite-core";
+import { ProcessingStep, StepData } from "./systemTypes";
+import { HSVStepProcessor } from "./hsvStepProcessor";
+import { CompressStepProcessor } from "./compressPngProcessor";
 
-export type HSVProcessingStep = {
-  type: "hsv";
-  layerNames: string[];
-  hue: number;
-  saturation: number;
-  value: number;
-};
-
-export function isHSVProcessingStep(
-  step: ProcessingStep,
-): step is HSVProcessingStep {
-  return step.type === "hsv";
+export async function processDataSteps(data: StepData, steps: ProcessingStep[]) {
+  let result: StepData | null = data;
+  for (const step of steps) {
+    if (result === null) return null;
+    switch (step.type) {
+      case "hsv":
+        result = await HSVStepProcessor.applyStep(result, step);
+        break;
+      case "compress":
+        result = await CompressStepProcessor.applyStep(result, step);
+    }
+  }
+  return result;
 }
-
-export type ProcessingStep = HSVProcessingStep;
-
-export type StepData = {
-  sheet: Data.SpriteSheetData;
-  sprite: Data.SpriteData;
-};
-
-export type StepProcessor<T extends ProcessingStep> = {
-  type: T["type"];
-  applyStep: (data: StepData, step: T) => Promise<StepData | null>;
-};

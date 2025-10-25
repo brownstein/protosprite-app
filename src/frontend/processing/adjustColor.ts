@@ -4,7 +4,7 @@ import { Data } from "protosprite-core";
 
 export type JimpData = Awaited<ReturnType<typeof Jimp.read>>;
 
-export async function getJimpData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
+export function getPngData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
   let pixelSourceBuffer: Uint8Array | undefined;
   if (Data.isEmbeddedSpriteSheetData(spriteData.pixelSource)) {
     pixelSourceBuffer = spriteData.pixelSource.pngData;
@@ -13,7 +13,12 @@ export async function getJimpData(sheetData: Data.SpriteSheetData, spriteData: D
   if (Data.isEmbeddedSpriteSheetData(sheetData.pixelSource)) {
     pixelSourceBuffer = sheetData.pixelSource.pngData;
   }
-  if (pixelSourceBuffer === undefined) return null;
+  return pixelSourceBuffer ?? null;
+}
+
+export async function getJimpData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
+  const pixelSourceBuffer = getPngData(sheetData, spriteData);
+  if (!pixelSourceBuffer) return null;
   const stringifiedBuffer = `data:image/png;base64,${Buffer.from(pixelSourceBuffer).toString("base64")}`;
   return Jimp.read(stringifiedBuffer, {
     "image/png": {}
