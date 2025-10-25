@@ -1,6 +1,6 @@
 import { useSpriteStore } from "../state";
 
-export function saveCurrentFile() {
+export function comperessCurrentFile() {
   const state = useSpriteStore.getState();
   
 }

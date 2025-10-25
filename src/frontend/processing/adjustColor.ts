@@ -1,10 +1,43 @@
 import Color, { ColorInstance } from "color";
-import { NearestFilter, TextureLoader } from "three";
 import { Jimp } from "jimp";
 import { Data } from "protosprite-core";
-import { ProtoSpriteSheetThree } from "protosprite-three";
 
 export type JimpData = Awaited<ReturnType<typeof Jimp.read>>;
+
+export async function getJimpData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData) {
+  let pixelSourceBuffer: Uint8Array | undefined;
+  if (Data.isEmbeddedSpriteSheetData(spriteData.pixelSource)) {
+    pixelSourceBuffer = spriteData.pixelSource.pngData;
+  }
+  // TODO(rbrownstein): update protosprite-core to explicitly surface presence of parent sheet data.
+  if (Data.isEmbeddedSpriteSheetData(sheetData.pixelSource)) {
+    pixelSourceBuffer = sheetData.pixelSource.pngData;
+  }
+  if (pixelSourceBuffer === undefined) return null;
+  const stringifiedBuffer = `data:image/png;base64,${Buffer.from(pixelSourceBuffer).toString("base64")}`;
+  return Jimp.read(stringifiedBuffer, {
+    "image/png": {}
+  });
+}
+
+export function setPngData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData, pngData: Uint8Array) {
+  if (Data.isEmbeddedSpriteSheetData(spriteData.pixelSource)) {
+    spriteData.pixelSource.pngData = pngData;
+    return true;
+  }
+  // TODO(rbrownstein): update protosprite-core to explicitly surface presence of parent sheet data.
+  if (Data.isEmbeddedSpriteSheetData(sheetData.pixelSource)) {
+    sheetData.pixelSource.pngData = pngData;
+    return true;
+  }
+  return false;
+}
+
+export async function setJimpData(sheetData: Data.SpriteSheetData, spriteData: Data.SpriteData, jimpData: JimpData) {
+  const buff = await jimpData.getBuffer("image/png");
+  const pngData = new Uint8Array(buff);
+  return setPngData(sheetData, spriteData, buff);
+}
 
 export function regionKey(pos: Data.PositionData, size: Data.SizeData) {
   return `${pos.x}:${pos.y}:${size.width}:${size.height}`;
@@ -52,34 +85,4 @@ export async function adjustLayerColorInImage(
       );
     });
   }
-}
-
-export async function adjustHsv(
-  prs: ProtoSpriteSheetThree,
-  layerNames: string[],
-  hsvAdjustment: [number, number, number],
-) {
-  const sprite = prs.getSprite();
-  if (!sprite) return false;
-  const sheetMaterial = prs.sheetMaterial;
-  const texture = prs.sheetTexture;
-  if (!texture || !sheetMaterial) return false;
-  const img = texture.image as HTMLImageElement;
-  const imgUrl = img.src;
-  const j = await Jimp.read(imgUrl);
-
-  adjustLayerColorInImage(sprite.data.sprite.data, j, layerNames, (c) => {
-    return c.desaturate(1);
-  });
-
-  const buff = await j.getBuffer("image/png");
-  const blob = new Blob([new Uint8Array(buff)], { type: "image/png " });
-  const dataUrl = URL.createObjectURL(blob);
-  const newTexture = await new TextureLoader().loadAsync(dataUrl);
-  newTexture.minFilter = NearestFilter;
-  newTexture.magFilter = NearestFilter;
-  prs.sheetTexture = newTexture;
-  sheetMaterial.uniforms.map.value = newTexture;
-  sheetMaterial.uniformsNeedUpdate = true;
-  texture.dispose();
 }
