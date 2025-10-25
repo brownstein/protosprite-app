@@ -28,10 +28,15 @@ export function FileOperations() {
         gap: "1em",
       }}
     >
-      <Button variant="contained" onClick={handleLoad}>
+      <Button variant="contained" size="large" onClick={handleLoad}>
         Load
       </Button>
-      <Button variant="contained" disabled={!sourceFile} onClick={handleSave}>
+      <Button
+        variant="contained"
+        size="large"
+        disabled={!sourceFile}
+        onClick={handleSave}
+      >
         Save
       </Button>
     </Box>

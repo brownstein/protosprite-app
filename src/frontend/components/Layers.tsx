@@ -1,7 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Data } from "protosprite-core";
 import Checkbox from "@mui/material/Checkbox";
 import { useSpriteStore } from "../state";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 
 import {
   Box,
@@ -15,12 +17,19 @@ import {
 
 export function Layers(): React.ReactNode {
   const sprite = useSpriteStore((state) => state.currentSprite?.sprite);
-  const sheetThree = useSpriteStore((state) => state.currentSprite?.spriteThree);
+  const sheetThree = useSpriteStore(
+    (state) => state.currentSprite?.spriteThree,
+  );
   const spriteSelectedLayers = useSpriteStore(
     (state) => state.selectedLayerNames,
   );
+  const spriteVisibleLayers = useSpriteStore(
+    (state) => state.visibleLayerNames,
+  );
   const currentFrame = useSpriteStore((state) => state.currentFrame);
-  const toggleLayer = useSpriteStore((state) => state.toggleLayerVisible);
+  const toggleLayerVisible = useSpriteStore(
+    (state) => state.toggleLayerVisible,
+  );
   const toggleLayerSelected = useSpriteStore(
     (state) => state.toggleLayerSelected,
   );
@@ -40,6 +49,14 @@ export function Layers(): React.ReactNode {
     return layerFrameMap;
   }, [sprite, currentFrame]);
 
+  const checkVisible = useCallback(
+    (layer: Data.LayerData) => {
+      if (spriteVisibleLayers === undefined) return true;
+      return spriteVisibleLayers.has(layer.name);
+    },
+    [spriteVisibleLayers],
+  );
+
   if (!layers || !sheetThree) return null;
 
   return (
@@ -54,14 +71,22 @@ export function Layers(): React.ReactNode {
                   indeterminate={
                     spriteSelectedLayers &&
                     !!spriteSelectedLayers.size &&
-                    spriteSelectedLayers.size !== layers.length
+                    spriteSelectedLayers.size !== layers.length ||
+                    false
                   }
                   checked={
                     spriteSelectedLayers &&
-                    spriteSelectedLayers.size == layers.length
+                    spriteSelectedLayers.size === layers.length ||
+                    false
                   }
                   onChange={toggleAllLayersSelected}
                 />
+              </TableCell>
+              <TableCell
+                padding="checkbox"
+                sx={{ justifyContent: "center", alignItems: "center" }}
+              >
+                <FontAwesomeIcon icon={faEye} />
               </TableCell>
               <TableCell>Layer Name</TableCell>
               <TableCell>Index</TableCell>
@@ -75,6 +100,14 @@ export function Layers(): React.ReactNode {
                   <Checkbox
                     checked={spriteSelectedLayers?.has(layer.name) ?? false}
                     onChange={() => toggleLayerSelected(layer.name)}
+                  />
+                </TableCell>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={checkVisible(layer) ?? false}
+                    onChange={() => toggleLayerVisible(layer.name)}
+                    checkedIcon={<FontAwesomeIcon icon={faEye} />}
+                    icon={<FontAwesomeIcon icon={faEyeSlash} />}
                   />
                 </TableCell>
                 <TableCell>{layer.name}</TableCell>

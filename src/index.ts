@@ -60,7 +60,7 @@ app.on("activate", () => {
 // Handle loading.
 
 ipcMain.on(
-  "file-load-requested",
+  "load-file",
   async () => {
     if (!mainWindow) return;
     const openDialogVal = await dialog.showOpenDialog(mainWindow, {
