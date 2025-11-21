@@ -43,6 +43,7 @@ export async function findAsperiteBinary() {
     case "linux": {
       knownPaths.push(
         "~/.steam/debian-installation/steamapps/common/Aseprite/aseprite",
+        os.homedir() + "/.local/share/Steam/steamapps/common/Aseprite/aseprite",
       );
       break;
     }
