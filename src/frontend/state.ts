@@ -58,6 +58,7 @@ export type SpriteStoreData = {
   beginEyedropper: (index: number) => void;
   cancelEyedropper: () => void;
   applyEyedropperColor: (hex: string) => void;
+  renameLayer: (oldName: string, newName: string) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -239,6 +240,63 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   beginEyedropper: (index) =>
     set(() => ({ eyedropperModifierIndex: index })),
   cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
+  renameLayer: (oldName, newName) => {
+    const next = newName.trim();
+    const state = useSpriteStore.getState();
+    if (!next || next === oldName) return;
+    // Reject collisions against the currently-visible layer set.
+    const existing = new Set(
+      state.currentSprite?.sprite.data.layers.map((l) => l.name) ?? [],
+    );
+    if (existing.has(next)) return;
+
+    // Rename in the base sprite (source of truth that modifiers replay from).
+    const renameInLayers = (layers?: { name: string }[]) => {
+      if (!layers) return;
+      for (const l of layers) if (l.name === oldName) l.name = next;
+    };
+    if (state.baseSprite) {
+      renameInLayers(state.baseSprite.sprite.data.layers);
+      renameInLayers(state.baseSprite.sheet.data.sprites?.[0]?.layers);
+    }
+
+    // Propagate to modifier source refs and palette destination names.
+    const modifiers: ProcessingStep[] = state.modifiers.map((m) => {
+      if (m.type === "hsv") {
+        return m.layerNames.includes(oldName)
+          ? {
+              ...m,
+              layerNames: m.layerNames.map((n) =>
+                n === oldName ? next : n,
+              ),
+            }
+          : m;
+      }
+      if (m.type === "palette") {
+        return {
+          ...m,
+          layerNames: m.layerNames.map((n) => (n === oldName ? next : n)),
+          newLayerName: m.newLayerName === oldName ? next : m.newLayerName,
+        };
+      }
+      return m;
+    });
+
+    const renameInSet = (s?: Set<string>) => {
+      if (!s || !s.has(oldName)) return s;
+      const renamed = new Set(s);
+      renamed.delete(oldName);
+      renamed.add(next);
+      return renamed;
+    };
+
+    set((s) => ({
+      modifiers,
+      selectedLayerNames: renameInSet(s.selectedLayerNames),
+      visibleLayerNames: renameInSet(s.visibleLayerNames),
+    }));
+    scheduleRecompute();
+  },
   applyEyedropperColor: (hex) => {
     const state = useSpriteStore.getState();
     const index = state.eyedropperModifierIndex;
