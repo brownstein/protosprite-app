@@ -1,12 +1,11 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFile } from "@fortawesome/free-regular-svg-icons";
-import { useCallback, useEffect, useMemo } from "react";
-import { Color, Scene } from "three";
-
-import { Renderer } from "./Renderer";
-import { useSpriteStore } from "../state";
 import "./SpritePreview.css";
+import { Color, Scene } from "three";
+import { useCallback, useEffect, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ProtoSpriteThreeEventTypes } from "protosprite-three/dist";
+import { Renderer } from "./Renderer";
+import { faFile } from "@fortawesome/free-regular-svg-icons";
+import { useSpriteStore } from "../state";
 
 export function SpritePreview() {
   const currentSpriteThree = useSpriteStore(

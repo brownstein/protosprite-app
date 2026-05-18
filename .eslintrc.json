@@ -13,14 +13,27 @@
     "plugin:import/typescript"
   ],
   "parser": "@typescript-eslint/parser",
-  "sort-imports": [
-    "error",
-    {
-      "ignoreCase": false,
-      "ignoreDeclarationSort": false,
-      "ignoreMemberSort": false,
-      "memberSyntaxSortOrder": ["none", "all", "multiple", "single"],
-      "allowSeparatedGroups": false
-    }
-  ]
+  "settings": {
+    "import/resolver": {
+      "node": {
+        "extensions": [".js", ".jsx", ".ts", ".tsx", ".d.ts", ".json"]
+      }
+    },
+    "import/core-modules": [
+      "protosprite-core/importers/aseprite",
+      "protosprite-core/transform"
+    ]
+  },
+  "rules": {
+    "sort-imports": [
+      "error",
+      {
+        "ignoreCase": false,
+        "ignoreDeclarationSort": false,
+        "ignoreMemberSort": false,
+        "memberSyntaxSortOrder": ["none", "all", "multiple", "single"],
+        "allowSeparatedGroups": false
+      }
+    ]
+  }
 }

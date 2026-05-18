@@ -16,4 +16,4 @@ export type RendererBridgeEvents = {
 
 export function createRendererEventBridge() {
   return createTypedEventEmitter<RendererBridgeEvents>();
-};
+}

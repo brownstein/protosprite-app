@@ -1,8 +1,8 @@
 import { ProcessingStep, StepData } from "./systemTypes";
-import { HSVStepProcessor } from "./hsvStepProcessor";
 import { CompressStepProcessor } from "./compressPngProcessor";
-import { ProtoSpriteSheetThreeLoader } from "protosprite-three";
+import { HSVStepProcessor } from "./hsvStepProcessor";
 import { ProtoSpriteSheet } from "protosprite-core";
+import { ProtoSpriteSheetThreeLoader } from "protosprite-three";
 
 export async function processDataSteps(
   data: StepData,

@@ -1,10 +1,10 @@
 import React, { useMemo } from "react";
+import Checkbox from "@mui/material/Checkbox";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import Checkbox from "@mui/material/Checkbox";
 import { useSpriteStore } from "../state";
 
 export function Animations(): React.ReactNode {

@@ -1,12 +1,11 @@
-import { ipcRenderer } from "electron";
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-import { App } from "./frontend/components/App";
-import { useSpriteStore } from "./frontend/state";
 import "./index.css";
+import { App } from "./frontend/components/App";
 import { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThreeLoader } from "protosprite-three/dist";
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { ipcRenderer } from "electron";
+import { useSpriteStore } from "./frontend/state";
 
 const root = createRoot(document.body);
 root.render(React.createElement(App));

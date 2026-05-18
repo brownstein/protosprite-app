@@ -1,11 +1,11 @@
-import path from "path";
-import os from "os";
-import fs from "fs";
-import tmpDirPromise from "temp-dir";
-import childProcess from "child_process";
 import { Data } from "protosprite-core";
+import childProcess from "child_process";
+import fs from "fs";
 import { importAsepriteSheetExport } from "protosprite-core/importers/aseprite";
+import os from "os";
 import { packSpriteSheet } from "protosprite-core/transform";
+import path from "path";
+import tmpDirPromise from "temp-dir";
 
 // TODO(rbrownstein): Make this work on windows.
 export async function findAsperiteBinary() {

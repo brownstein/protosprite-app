@@ -7,4 +7,4 @@ declare module "protosprite-core/transform" {
     }
   ): Promise<SpriteSheetData>;
   export { packSpriteSheet };
-};
+}
