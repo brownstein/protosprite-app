@@ -20,11 +20,10 @@ export type PaletteProcessingStep = {
   targetColor: string;
   // 0..100; mapped to an RGB euclidean-distance threshold.
   tolerance: number;
-  // Destination layer the matched pixels are moved into.
+  // Destination layer the matched pixels are moved into. While the modifier
+  // exists this layer is a live preview (highlighted, hidden from the
+  // selector); applying the modifier bakes it into the base sprite.
   newLayerName: string;
-  // false = temporary (preview-only highlight); true = materialized so the
-  // new layer surfaces in the layer selector.
-  applied: boolean;
 };
 
 export function isHSVProcessingStep(

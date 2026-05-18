@@ -59,6 +59,10 @@ export type SpriteStoreData = {
   cancelEyedropper: () => void;
   applyEyedropperColor: (hex: string) => void;
   renameLayer: (oldName: string, newName: string) => void;
+  // Bakes the pipeline up to and including the palette modifier at `index`
+  // into the base sprite, then drops those (now-permanent) steps so the
+  // produced layer persists independently of the modifier list.
+  applyPaletteModifier: (index: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -240,6 +244,45 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   beginEyedropper: (index) =>
     set(() => ({ eyedropperModifierIndex: index })),
   cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
+  applyPaletteModifier: async (index) => {
+    const state = useSpriteStore.getState();
+    const baseSprite = state.baseSprite;
+    if (!baseSprite) return;
+    const stepsSnapshot = state.modifiers;
+    const target = stepsSnapshot[index];
+    if (!target || target.type !== "palette") return;
+    // Bake everything up to and including this step (the split depends on
+    // the pipeline output at this position).
+    const stepsToBake = stepsSnapshot.slice(0, index + 1);
+    const baked = await processDataSteps(
+      {
+        sheet: baseSprite.sheet.data,
+        sprite: baseSprite.sprite.data,
+      },
+      stepsToBake,
+    );
+    // Abort if the pipeline changed while we worked, or the bake failed.
+    if (useSpriteStore.getState().modifiers !== stepsSnapshot || !baked) {
+      return;
+    }
+    const three = await produceProtoSpriteThree(baked);
+    if (useSpriteStore.getState().modifiers !== stepsSnapshot || !three) {
+      return;
+    }
+    // Supersede any in-flight recompute that still reads the old base.
+    recomputeGeneration++;
+    set((s) => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+      modifiers: s.modifiers.slice(index + 1),
+      eyedropperModifierIndex: null,
+    }));
+    scheduleRecompute();
+  },
   renameLayer: (oldName, newName) => {
     const next = newName.trim();
     const state = useSpriteStore.getState();

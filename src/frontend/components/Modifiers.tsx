@@ -164,6 +164,9 @@ function PaletteModifierItem(props: {
   const eyedropperActive = useSpriteStore(
     (s) => s.eyedropperModifierIndex === index,
   );
+  const applyPaletteModifier = useSpriteStore(
+    (s) => s.applyPaletteModifier,
+  );
 
   // Reflect external targetColor changes (e.g. from the eyedropper).
   useEffect(() => {
@@ -172,8 +175,8 @@ function PaletteModifierItem(props: {
 
   const applyNow = useCallback(() => {
     commit.clear();
-    onUpdate(index, { ...modifierRef.current, applied: true });
-  }, [commit, index, onUpdate]);
+    applyPaletteModifier(index);
+  }, [commit, index, applyPaletteModifier]);
 
   return (
     <ListItem alignItems="flex-start">
@@ -194,7 +197,7 @@ function PaletteModifierItem(props: {
           primary="Palette Adjustment"
           secondary={`${modifier.layerNames.join(", ")} → ${
             modifier.newLayerName
-          }${modifier.applied ? " (applied)" : ""}`}
+          }`}
         />
         <HexColorPicker
           color={targetColor}
@@ -239,13 +242,8 @@ function PaletteModifierItem(props: {
             }
           }}
         />
-        <Button
-          variant="contained"
-          size="small"
-          disabled={modifier.applied}
-          onClick={applyNow}
-        >
-          {modifier.applied ? "Applied" : "Apply"}
+        <Button variant="contained" size="small" onClick={applyNow}>
+          Apply
         </Button>
       </Box>
     </ListItem>
@@ -287,7 +285,6 @@ export function Modifiers(): React.ReactNode {
       targetColor: "#ff0000",
       tolerance: 24,
       newLayerName: `Palette ${n}`,
-      applied: false,
     });
   }, [currentSprite, modifiers, selectedLayers, addModifier]);
 

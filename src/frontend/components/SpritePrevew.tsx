@@ -27,15 +27,12 @@ export function SpritePreview() {
   );
   const scene = useMemo(() => new Scene(), []);
 
-  // Unapplied palette modifiers create a temporary layer that is highlighted
-  // in the preview (but kept out of the layer selector until Applied).
+  // A palette modifier's layer is a live preview - highlighted here and
+  // kept out of the layer selector - until Apply bakes it into the base.
   const paletteTempLayers = useMemo(
     () =>
       modifiers
-        .filter(
-          (m): m is PaletteProcessingStep =>
-            m.type === "palette" && !m.applied
-        )
+        .filter((m): m is PaletteProcessingStep => m.type === "palette")
         .map((m) => m.newLayerName),
     [modifiers]
   );

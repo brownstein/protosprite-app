@@ -43,12 +43,13 @@ export function Layers(): React.ReactNode {
   const [draft, setDraft] = useState("");
 
   const layers = useMemo(() => sprite?.data.layers, [sprite]);
-  // Hide unapplied palette "temp" layers from the selector until Applied.
+  // Hide palette preview layers from the selector until they are Applied
+  // (which bakes them into the base sprite and removes the modifier).
   const displayLayers = useMemo(() => {
     if (!layers) return layers;
     const hidden = new Set<string>();
     for (const m of modifiers) {
-      if (m.type === "palette" && !m.applied) hidden.add(m.newLayerName);
+      if (m.type === "palette") hidden.add(m.newLayerName);
     }
     return layers.filter((l) => !hidden.has(l.name));
   }, [layers, modifiers]);
