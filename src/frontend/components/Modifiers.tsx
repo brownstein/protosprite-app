@@ -159,6 +159,17 @@ function PaletteModifierItem(props: {
   );
   useEffect(() => () => commit.clear(), [commit]);
 
+  const beginEyedropper = useSpriteStore((s) => s.beginEyedropper);
+  const cancelEyedropper = useSpriteStore((s) => s.cancelEyedropper);
+  const eyedropperActive = useSpriteStore(
+    (s) => s.eyedropperModifierIndex === index,
+  );
+
+  // Reflect external targetColor changes (e.g. from the eyedropper).
+  useEffect(() => {
+    setTargetColor(modifier.targetColor);
+  }, [modifier.targetColor]);
+
   const applyNow = useCallback(() => {
     commit.clear();
     onUpdate(index, { ...modifierRef.current, applied: true });
@@ -192,6 +203,15 @@ function PaletteModifierItem(props: {
             commit({ targetColor: c });
           }}
         />
+        <Button
+          size="small"
+          variant={eyedropperActive ? "contained" : "outlined"}
+          onClick={() =>
+            eyedropperActive ? cancelEyedropper() : beginEyedropper(index)
+          }
+        >
+          {eyedropperActive ? "Click sprite to pick…" : "Pick from sprite"}
+        </Button>
         <Box>
           <Typography>Tolerance</Typography>
           <Slider

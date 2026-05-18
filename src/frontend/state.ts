@@ -52,6 +52,12 @@ export type SpriteStoreData = {
   pushModifier: (modifier: ProcessingStep) => void;
   updateModifier: (index: number, modifier: ProcessingStep) => void;
   removeModifier: (index: number) => void;
+  // Index of the palette modifier currently waiting for an eyedropper pick
+  // from the sprite preview (null when not picking).
+  eyedropperModifierIndex?: number | null;
+  beginEyedropper: (index: number) => void;
+  cancelEyedropper: () => void;
+  applyEyedropperColor: (hex: string) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -125,6 +131,7 @@ function scheduleRecompute() {
 
 export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
+  eyedropperModifierIndex: null,
   onAfterLoad: (updates) => {
     recomputeGeneration++;
     set(() => ({
@@ -132,6 +139,7 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       baseSprite: updates.sprite,
       currentSprite: updates.sprite,
       modifiers: [],
+      eyedropperModifierIndex: null,
     }));
   },
   setCurrentTab: (currentTab) =>
@@ -225,6 +233,28 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         ...state.modifiers.slice(0, index),
         ...state.modifiers.slice(index + 1),
       ],
+    }));
+    scheduleRecompute();
+  },
+  beginEyedropper: (index) =>
+    set(() => ({ eyedropperModifierIndex: index })),
+  cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
+  applyEyedropperColor: (hex) => {
+    const state = useSpriteStore.getState();
+    const index = state.eyedropperModifierIndex;
+    if (index == null) return;
+    const target = state.modifiers[index];
+    if (!target || target.type !== "palette") {
+      set(() => ({ eyedropperModifierIndex: null }));
+      return;
+    }
+    set((s) => ({
+      modifiers: [
+        ...s.modifiers.slice(0, index),
+        { ...target, targetColor: hex },
+        ...s.modifiers.slice(index + 1),
+      ],
+      eyedropperModifierIndex: null,
     }));
     scheduleRecompute();
   },
