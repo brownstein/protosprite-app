@@ -1,12 +1,14 @@
-import { PaletteProcessingStep, StepData, StepProcessor } from "./systemTypes";
 import {
+  JimpData,
   getJimpData,
   getUniqueLayerRegions,
   parseHexColor,
   regionKey,
   setJimpData,
 } from "./adjustColor";
+import { PaletteProcessingStep, StepData, StepProcessor } from "./systemTypes";
 import { Data } from "protosprite-core";
+import { Jimp } from "jimp";
 
 const MAX_RGB_DISTANCE = Math.sqrt(255 * 255 * 3);
 
@@ -55,7 +57,10 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
     }
     const newHeight = offsetY;
 
-    const dst = Buffer.alloc(width * newHeight * 4);
+    // Allocate the resized atlas via Jimp itself - the Node `Buffer` global
+    // is not polyfilled for app code in the renderer bundle.
+    const out = new Jimp({ width, height: newHeight, color: 0x00000000 });
+    const dst = out.bitmap.data;
     dst.set(src.subarray(0, width * height * 4), 0);
 
     for (const [pos, size] of regions) {
@@ -91,10 +96,6 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
       }
     }
 
-    img.bitmap.data = dst;
-    img.bitmap.width = width;
-    img.bitmap.height = newHeight;
-
     // Add the new layer at the end (existing layer indices stay valid).
     const newIndex = spriteClone.layers.length;
     const newLayer = spriteClone.layers[0].clone();
@@ -127,7 +128,10 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
       frame.layers.push(...additions);
     }
 
-    return (await setJimpData(sheetClone, spriteClone, img))
+    // jimp's constructed-instance type and Jimp.read's return type are
+    // self-inconsistent in its .d.ts (identical shape, "two different types");
+    // the value is a real Jimp instance with getBuffer().
+    return (await setJimpData(sheetClone, spriteClone, out as unknown as JimpData))
       ? { sheet: sheetClone, sprite: spriteClone }
       : null;
   },
