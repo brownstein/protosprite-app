@@ -81,13 +81,25 @@ async function recomputeFromBase(generation: number) {
   if (generation !== recomputeGeneration || !updatedData) return;
   const threeData = await produceProtoSpriteThree(updatedData);
   if (generation !== recomputeGeneration || !threeData) return;
+  const sprite = threeData.spriteThree.data.sprite;
+  // Default any newly-created layers (e.g. from a palette split) to visible
+  // so they aren't accidentally hidden once the visibility set exists.
+  const { visibleLayerNames } = useSpriteStore.getState();
+  let nextVisible = visibleLayerNames;
+  if (visibleLayerNames) {
+    nextVisible = new Set(visibleLayerNames);
+    for (const layer of sprite.data.layers) {
+      if (!visibleLayerNames.has(layer.name)) nextVisible.add(layer.name);
+    }
+  }
   useSpriteStore.setState({
     currentSprite: {
-      sprite: threeData.spriteThree.data.sprite,
+      sprite,
       spriteThree: threeData.spriteThree,
       sheet: threeData.sheetThree.sheet,
       sheetThree: threeData.sheetThree,
     },
+    visibleLayerNames: nextVisible,
   });
 }
 

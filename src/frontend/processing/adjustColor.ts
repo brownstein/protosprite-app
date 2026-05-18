@@ -45,6 +45,17 @@ export async function setJimpData(sheetData: Data.SpriteSheetData, spriteData: D
   return setPngData(sheetData, spriteData, buff);
 }
 
+export type RGB = { r: number; g: number; b: number };
+
+export function parseHexColor(hex: string): RGB {
+  try {
+    const c = new Color(hex);
+    return { r: c.red(), g: c.green(), b: c.blue() };
+  } catch {
+    return { r: 0, g: 0, b: 0 };
+  }
+}
+
 export function regionKey(pos: Data.PositionData, size: Data.SizeData) {
   return `${pos.x}:${pos.y}:${size.width}:${size.height}`;
 }

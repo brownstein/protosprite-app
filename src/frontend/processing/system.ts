@@ -1,6 +1,7 @@
 import { ProcessingStep, StepData } from "./systemTypes";
 import { CompressStepProcessor } from "./compressPngProcessor";
 import { HSVStepProcessor } from "./hsvStepProcessor";
+import { PaletteStepProcessor } from "./paletteStepProcessor";
 import { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThreeLoader } from "protosprite-three";
 
@@ -17,6 +18,10 @@ export async function processDataSteps(
         break;
       case "compress":
         result = await CompressStepProcessor.applyStep(result, step);
+        break;
+      case "palette":
+        result = await PaletteStepProcessor.applyStep(result, step);
+        break;
     }
   }
   return result;
