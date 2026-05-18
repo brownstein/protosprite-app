@@ -351,10 +351,13 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       set(() => ({ eyedropperModifierIndex: null }));
       return;
     }
+    const targetColors = target.targetColors.includes(hex)
+      ? target.targetColors
+      : [...target.targetColors, hex];
     set((s) => ({
       modifiers: [
         ...s.modifiers.slice(0, index),
-        { ...target, targetColor: hex },
+        { ...target, targetColors },
         ...s.modifiers.slice(index + 1),
       ],
       eyedropperModifierIndex: null,

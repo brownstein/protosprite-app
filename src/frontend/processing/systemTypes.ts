@@ -16,8 +16,9 @@ export type PaletteProcessingStep = {
   type: "palette";
   // Source layers whose pixels are scanned for matches.
   layerNames: string[];
-  // Target colour as "#rrggbb".
-  targetColor: string;
+  // Target colours as "#rrggbb"; a pixel matches if it is within tolerance
+  // of ANY of these.
+  targetColors: string[];
   // 0..100; mapped to an RGB euclidean-distance threshold.
   tolerance: number;
   // Destination layer the matched pixels are moved into. While the modifier

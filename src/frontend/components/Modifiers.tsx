@@ -183,7 +183,8 @@ function PaletteModifierItem(props: {
 }): React.ReactNode {
   const { modifier, index, onUpdate, onDelete } = props;
 
-  const [targetColor, setTargetColor] = useState(modifier.targetColor);
+  const [colors, setColors] = useState<string[]>(modifier.targetColors);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [tolerance, setTolerance] = useState(modifier.tolerance);
   const [newLayerName, setNewLayerName] = useState(modifier.newLayerName);
 
@@ -208,10 +209,26 @@ function PaletteModifierItem(props: {
     (s) => s.applyPaletteModifier,
   );
 
-  // Reflect external targetColor changes (e.g. from the eyedropper).
+  // Reflect external targetColors changes (e.g. the eyedropper appends one).
   useEffect(() => {
-    setTargetColor(modifier.targetColor);
-  }, [modifier.targetColor]);
+    setColors(modifier.targetColors);
+    setActiveIndex((i) =>
+      Math.min(i, Math.max(0, modifier.targetColors.length - 1)),
+    );
+  }, [modifier.targetColors]);
+
+  const activeColor = colors[activeIndex] ?? colors[0] ?? "#000000";
+
+  // Structural color changes (add/remove) commit immediately; picker drags
+  // are debounced via `commit`.
+  const pushColors = useCallback(
+    (next: string[]) => {
+      commit.clear();
+      setColors(next);
+      onUpdate(index, { ...modifierRef.current, targetColors: next });
+    },
+    [commit, index, onUpdate],
+  );
 
   const applyNow = useCallback(() => {
     commit.clear();
@@ -226,13 +243,52 @@ function PaletteModifierItem(props: {
       onDelete={onDelete}
     >
       <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.35em" }}>
+          {colors.map((c, i) => (
+            <Box
+              key={i}
+              onClick={() => setActiveIndex(i)}
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: "4px",
+                backgroundColor: c,
+                cursor: "pointer",
+                outline:
+                  i === activeIndex
+                    ? "2px solid #fff"
+                    : "1px solid rgba(255,255,255,0.4)",
+              }}
+            />
+          ))}
+        </Box>
         <HexColorPicker
-          color={targetColor}
+          color={activeColor}
           onChange={(c) => {
-            setTargetColor(c);
-            commit({ targetColor: c });
+            const next = colors.map((col, i) => (i === activeIndex ? c : col));
+            setColors(next);
+            commit({ targetColors: next });
           }}
         />
+        <Box sx={{ display: "flex", gap: "0.5em" }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => pushColors([...colors, activeColor])}
+          >
+            Add color
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={colors.length <= 1}
+            onClick={() =>
+              pushColors(colors.filter((_, i) => i !== activeIndex))
+            }
+          >
+            Remove color
+          </Button>
+        </Box>
         <Button
           size="small"
           variant={eyedropperActive ? "contained" : "outlined"}
@@ -309,7 +365,7 @@ export function Modifiers(): React.ReactNode {
     addModifier({
       type: "palette",
       layerNames: [...(selectedLayers ?? [])],
-      targetColor: "#ff0000",
+      targetColors: ["#ff0000"],
       tolerance: 24,
       newLayerName: `Palette ${n}`,
     });
