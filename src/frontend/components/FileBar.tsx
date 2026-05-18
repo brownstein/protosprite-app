@@ -1,8 +1,7 @@
+import "./FileBar.css";
 import React, { useMemo } from "react";
 import path from "path-browserify";
-
 import { useSpriteStore } from "../state";
-import "./FileBar.css";
 
 export function FileBar() {
   const sourceFile = useSpriteStore((state) => state.sourceFile);

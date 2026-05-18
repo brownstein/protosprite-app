@@ -1,6 +1,6 @@
 import { Box, Button } from "@mui/material";
-import { useSpriteStore } from "../state";
 import { useCallback } from "react";
+import { useSpriteStore } from "../state";
 
 export function FileOperations() {
   const sourceFile = useSpriteStore((state) => state.sourceFile);

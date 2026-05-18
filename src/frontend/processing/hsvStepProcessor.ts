@@ -1,9 +1,9 @@
+import { HSVProcessingStep, StepData, StepProcessor } from "./systemTypes";
 import {
   adjustLayerColorInImage,
   getJimpData,
   setJimpData,
 } from "./adjustColor";
-import { HSVProcessingStep, StepData, StepProcessor } from "./systemTypes";
 
 export const HSVStepProcessor: StepProcessor<HSVProcessingStep> = {
   type: "hsv",

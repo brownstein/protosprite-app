@@ -1,10 +1,3 @@
-import React, { useCallback, useMemo } from "react";
-import { Data } from "protosprite-core";
-import Checkbox from "@mui/material/Checkbox";
-import { useSpriteStore } from "../state";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
-
 import {
   Box,
   Paper,
@@ -14,6 +7,12 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
+import React, { useCallback, useMemo } from "react";
+import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
+import Checkbox from "@mui/material/Checkbox";
+import { Data } from "protosprite-core";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useSpriteStore } from "../state";
 
 export function Layers(): React.ReactNode {
   const sprite = useSpriteStore((state) => state.currentSprite?.sprite);

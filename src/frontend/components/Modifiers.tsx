@@ -1,21 +1,21 @@
-import debounce from "debounce";
-import React, { useCallback, useMemo } from "react";
-import Box from "@mui/material/Box";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Checkbox from "@mui/material/Checkbox";
-import { useSpriteStore } from "../state";
 import {
   IconButton,
   Paper,
   Slider,
   Typography,
 } from "@mui/material";
+import React, { useCallback, useMemo } from "react";
+import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import debounce from "debounce";
 import { faTrashCan } from "@fortawesome/free-regular-svg-icons";
+import { useSpriteStore } from "../state";
 
 export function Modifiers(): React.ReactNode {
   const currentSprite = useSpriteStore((state) => state.currentSprite);

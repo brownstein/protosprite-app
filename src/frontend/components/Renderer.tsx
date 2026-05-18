@@ -1,7 +1,6 @@
-import React, { useEffect, useRef } from "react";
-import { Box3, LinearSRGBColorSpace, NoToneMapping, OrthographicCamera, Scene, Vector2, Vector3, WebGLRenderer } from "three";
-
 import "./Renderer.css";
+import { Box3, LinearSRGBColorSpace, NoToneMapping, OrthographicCamera, Scene, Vector2, Vector3, WebGLRenderer } from "three";
+import React, { useEffect, useRef } from "react";
 
 type RendererIState = {
   renderer?: WebGLRenderer;

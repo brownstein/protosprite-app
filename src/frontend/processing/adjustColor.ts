@@ -1,7 +1,7 @@
 import Color, { ColorInstance } from "color";
-import { Jimp } from "jimp";
 import { Base64 } from "js-base64";
 import { Data } from "protosprite-core";
+import { Jimp } from "jimp";
 
 export type JimpData = Awaited<ReturnType<typeof Jimp.read>>;
 

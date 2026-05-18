@@ -1,5 +1,5 @@
-import { TypedEventEmitter } from "./util/TypedEventEmitter";
 import { RendererBridgeEvents } from "./rendererGlobalEvents";
+import { TypedEventEmitter } from "./util/TypedEventEmitter";
 
 export type ElectronAPI = {
   on<Key extends keyof RendererBridgeEvents>(

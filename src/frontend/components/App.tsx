@@ -1,19 +1,17 @@
-import React from "react";
-import { Box, createTheme, Tab, Tabs, ThemeProvider } from "@mui/material";
-
 import "./App.css";
-import { Layers } from "./Layers";
-import { FileBar } from "./FileBar";
-import { SpritePreview } from "./SpritePrevew";
-import { Animations } from "./Animations";
-
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
-import { useSpriteStore } from "../state";
+import { Box, Tab, Tabs, ThemeProvider, createTheme } from "@mui/material";
+import { Animations } from "./Animations";
+import { FileBar } from "./FileBar";
 import { FileOperations } from "./FileOperations";
+import { Layers } from "./Layers";
 import { Modifiers } from "./Modifiers";
+import React from "react";
+import { SpritePreview } from "./SpritePrevew";
+import { useSpriteStore } from "../state";
 
 const darkTheme = createTheme({
   palette: {

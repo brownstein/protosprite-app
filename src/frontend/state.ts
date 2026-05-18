@@ -1,8 +1,8 @@
 import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
-import { create } from "zustand";
-import { ProcessingStep } from "./processing/systemTypes";
 import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
+import { ProcessingStep } from "./processing/systemTypes";
+import { create } from "zustand";
 
 export type ProtospriteSourceFile = {
   type: "protosprite";
