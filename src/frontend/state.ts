@@ -20,8 +20,6 @@ export type AsepriteSourceFile = {
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
 
-export type TabName = "layers" | "animations" | "file";
-
 export type SpriteWithData = {
   sheet: ProtoSpriteSheet;
   sprite: ProtoSprite;
@@ -31,7 +29,6 @@ export type SpriteWithData = {
 
 export type SpriteStoreData = {
   sourceFile?: SourceFile;
-  currentTab: TabName;
   baseSprite?: SpriteWithData;
   currentSprite?: SpriteWithData;
   currentAnimationName?: string;
@@ -43,7 +40,6 @@ export type SpriteStoreData = {
     sourceFile: SourceFile;
     sprite: SpriteWithData;
   }) => void;
-  setCurrentTab: (tab: TabName) => void;
   toggleAllLayersSelected: () => void;
   toggleLayerSelected: (layerName: string) => void;
   toggleLayerVisible: (layerName: string) => void;
@@ -66,8 +62,7 @@ export type SpriteStoreData = {
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
-  Pick<SpriteStoreData, "currentTab" | "modifiers"> = {
-  currentTab: "layers",
+  Pick<SpriteStoreData, "modifiers"> = {
   modifiers: [],
 };
 
@@ -147,10 +142,6 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       eyedropperModifierIndex: null,
     }));
   },
-  setCurrentTab: (currentTab) =>
-    set(() => ({
-      currentTab,
-    })),
   toggleAllLayersSelected: () =>
     set((state) => {
       const allSelected =
