@@ -33,6 +33,8 @@ export type SpriteStoreData = {
   currentSprite?: SpriteWithData;
   currentAnimationName?: string;
   currentFrame?: number;
+  // Whether animation playback is advancing (false = paused/scrubbing).
+  playing: boolean;
   selectedLayerNames?: Set<string>;
   visibleLayerNames?: Set<string>;
   modifiers: ProcessingStep[];
@@ -43,7 +45,9 @@ export type SpriteStoreData = {
   toggleAllLayersSelected: () => void;
   toggleLayerSelected: (layerName: string) => void;
   toggleLayerVisible: (layerName: string) => void;
-  toggleAnimationSelected: (animationName: string) => void;
+  setAnimation: (animationName: string | null) => void;
+  setPlaying: (playing: boolean) => void;
+  gotoFrame: (frame: number) => void;
   setCurrentFrame: (frame: number) => void;
   pushModifier: (modifier: ProcessingStep) => void;
   updateModifier: (index: number, modifier: ProcessingStep) => void;
@@ -132,6 +136,7 @@ function scheduleRecompute() {
 export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
   eyedropperModifierIndex: null,
+  playing: true,
   onAfterLoad: (updates) => {
     recomputeGeneration++;
     set(() => ({
@@ -193,17 +198,23 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         visibleLayerNames,
       };
     }),
-  toggleAnimationSelected: (animationName) =>
+  setAnimation: (animationName) =>
     set((state) => {
       if (!state.currentSprite?.spriteThree) return state;
-      let currentAnimationName: string | null = animationName;
-      if (state.currentAnimationName === currentAnimationName) {
-        currentAnimationName = null;
-      }
-      state.currentSprite.spriteThree.gotoAnimation(currentAnimationName);
+      state.currentSprite.spriteThree.gotoAnimation(animationName);
       return {
-        currentAnimationName: currentAnimationName ?? undefined,
+        currentAnimationName: animationName ?? undefined,
+        playing: true,
       };
+    }),
+  setPlaying: (playing) => set(() => ({ playing })),
+  gotoFrame: (frame) =>
+    set((state) => {
+      const spriteThree = state.currentSprite?.spriteThree;
+      if (!spriteThree) return state;
+      spriteThree.gotoFrame(frame);
+      spriteThree.update();
+      return { currentFrame: frame, playing: false };
     }),
   setCurrentFrame: (frame) =>
     set(() => ({
