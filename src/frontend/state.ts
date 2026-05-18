@@ -60,15 +60,68 @@ export const initialSpriteStoreData: Partial<SpriteStoreData> &
   modifiers: [],
 };
 
-export const useSpriteStore = create<SpriteStoreData>()((set, get) => ({
+let recomputeGeneration = 0;
+let activeRun: Promise<void> | null = null;
+let recomputeDirty = false;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function recomputeFromBase(generation: number) {
+  const { baseSprite, modifiers } = useSpriteStore.getState();
+  if (!baseSprite) return;
+  const updatedData = await processDataSteps(
+    {
+      sheet: baseSprite.sheet.data,
+      sprite: baseSprite.sprite.data,
+    },
+    modifiers,
+  );
+  if (generation !== recomputeGeneration || !updatedData) return;
+  const threeData = await produceProtoSpriteThree(updatedData);
+  if (generation !== recomputeGeneration || !threeData) return;
+  useSpriteStore.setState({
+    currentSprite: {
+      sprite: threeData.spriteThree.data.sprite,
+      spriteThree: threeData.spriteThree,
+      sheet: threeData.sheetThree.sheet,
+      sheetThree: threeData.sheetThree,
+    },
+  });
+}
+
+// Debounce/serialize recomputes: only one runs at a time. When new changes
+// arrive while a recompute is in flight, wait for it to finish OR one second
+// (whichever comes first) before starting the next recompute from the latest
+// modifiers. The generation guard discards results from superseded runs.
+function scheduleRecompute() {
+  recomputeDirty = true;
+  if (activeRun) return;
+  activeRun = (async () => {
+    try {
+      while (recomputeDirty) {
+        recomputeDirty = false;
+        const generation = ++recomputeGeneration;
+        await Promise.race([recomputeFromBase(generation), sleep(1000)]);
+      }
+    } finally {
+      activeRun = null;
+    }
+  })();
+}
+
+export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
-  onAfterLoad: (updates) =>
+  onAfterLoad: (updates) => {
+    recomputeGeneration++;
     set(() => ({
       sourceFile: updates.sourceFile,
       baseSprite: updates.sprite,
       currentSprite: updates.sprite,
-      modifiers: []
-    })),
+      modifiers: [],
+    }));
+  },
   setCurrentTab: (currentTab) =>
     set(() => ({
       currentTab,
@@ -140,86 +193,27 @@ export const useSpriteStore = create<SpriteStoreData>()((set, get) => ({
     set(() => ({
       currentFrame: frame,
     })),
-  // TODO: refactor duplicate async logic.
-  pushModifier: async (modifier) => {
-    const currentState = get();
-    const modifiers = [...currentState.modifiers, modifier];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
-    }));
+  pushModifier: (modifier) => {
+    set((state) => ({ modifiers: [...state.modifiers, modifier] }));
+    scheduleRecompute();
   },
-  // TODO: refactor duplicate async logic.
-  updateModifier: async (index, modifier) => {
-    const currentState = get();
-    const modifiers = [
-      ...currentState.modifiers.slice(0, index),
-      modifier,
-      ...currentState.modifiers.slice(index + 1),
-    ];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
+  updateModifier: (index, modifier) => {
+    set((state) => ({
+      modifiers: [
+        ...state.modifiers.slice(0, index),
+        modifier,
+        ...state.modifiers.slice(index + 1),
+      ],
     }));
+    scheduleRecompute();
   },
-  // TODO: refactor duplicate async logic.
-  removeModifier: async (index) => {
-    const currentState = get();
-    const modifiers = [
-      ...currentState.modifiers.slice(0, index),
-      ...currentState.modifiers.slice(index + 1),
-    ];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
+  removeModifier: (index) => {
+    set((state) => ({
+      modifiers: [
+        ...state.modifiers.slice(0, index),
+        ...state.modifiers.slice(index + 1),
+      ],
     }));
+    scheduleRecompute();
   },
 }));
