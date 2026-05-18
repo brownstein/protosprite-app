@@ -1,5 +1,6 @@
 import {
   Button,
+  Collapse,
   IconButton,
   Menu,
   MenuItem,
@@ -39,6 +40,52 @@ type HsvValues = { hue: number; saturation: number; value: number };
 // UI state immediately; the store recompute is coalesced until the user
 // pauses, then flushed on release via onChangeCommitted.
 const COMMIT_DEBOUNCE_MS = 200;
+
+// Collapsible shell shared by every modifier list item: a header (delete +
+// expand toggle + title) over a Collapse-wrapped body of controls.
+function ModifierFrame(props: {
+  index: number;
+  title: string;
+  subtitle?: string;
+  onDelete: (index: number) => void;
+  children: React.ReactNode;
+}): React.ReactNode {
+  const { index, title, subtitle, onDelete, children } = props;
+  const [open, setOpen] = useState(true);
+  return (
+    <ListItem
+      disableGutters
+      sx={{ flexDirection: "column", alignItems: "stretch" }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+        <ListItemIcon sx={{ minWidth: "auto" }}>
+          <IconButton onClick={() => onDelete(index)}>
+            <FontAwesomeIcon icon={faTrashCan} />
+          </IconButton>
+        </ListItemIcon>
+        <ListItemButton onClick={() => setOpen((o) => !o)}>
+          <Box sx={{ width: "1.5em", userSelect: "none" }}>
+            {open ? "▾" : "▸"}
+          </Box>
+          <ListItemText primary={title} secondary={subtitle} />
+        </ListItemButton>
+      </Box>
+      <Collapse in={open} sx={{ width: "100%" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5em",
+            px: "1em",
+            pb: "0.5em",
+          }}
+        >
+          {children}
+        </Box>
+      </Collapse>
+    </ListItem>
+  );
+}
 
 function HsvModifierItem(props: {
   modifier: HSVProcessingStep;
@@ -82,56 +129,49 @@ function HsvModifierItem(props: {
   const flush = useCallback(() => commit.flush(), [commit]);
 
   return (
-    <ListItem>
-      <ListItemIcon>
-        <IconButton onClick={() => onDelete(index)}>
-          <FontAwesomeIcon icon={faTrashCan} />
-        </IconButton>
-      </ListItemIcon>
-      <ListItemText
-        sx={{ width: "40%", maxWidth: "40%" }}
-        primary="Adjust Color"
-        secondary={modifier.layerNames.join(", ")}
-      />
-      <Box style={{ width: "50%", position: "relative" }}>
-        <Box style={{ width: "100%", position: "relative" }}>
-          <Typography>Hue</Typography>
-          <Slider
-            size="small"
-            min={-127}
-            max={127}
-            step={1}
-            value={local.hue}
-            onChange={(_e, v) => setField("hue", v as number)}
-            onChangeCommitted={flush}
-          />
-        </Box>
-        <Box style={{ width: "100%", position: "relative" }}>
-          <Typography>Saturation</Typography>
-          <Slider
-            size="small"
-            min={-1}
-            max={1}
-            step={0.1}
-            value={local.saturation}
-            onChange={(_e, v) => setField("saturation", v as number)}
-            onChangeCommitted={flush}
-          />
-        </Box>
-        <Box style={{ width: "100%", position: "relative" }}>
-          <Typography>Value</Typography>
-          <Slider
-            size="small"
-            min={-1}
-            max={1}
-            step={0.1}
-            value={local.value}
-            onChange={(_e, v) => setField("value", v as number)}
-            onChangeCommitted={flush}
-          />
-        </Box>
+    <ModifierFrame
+      index={index}
+      title="Adjust Color"
+      subtitle={modifier.layerNames.join(", ")}
+      onDelete={onDelete}
+    >
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Hue</Typography>
+        <Slider
+          size="small"
+          min={-127}
+          max={127}
+          step={1}
+          value={local.hue}
+          onChange={(_e, v) => setField("hue", v as number)}
+          onChangeCommitted={flush}
+        />
       </Box>
-    </ListItem>
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Saturation</Typography>
+        <Slider
+          size="small"
+          min={-1}
+          max={1}
+          step={0.1}
+          value={local.saturation}
+          onChange={(_e, v) => setField("saturation", v as number)}
+          onChangeCommitted={flush}
+        />
+      </Box>
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Value</Typography>
+        <Slider
+          size="small"
+          min={-1}
+          max={1}
+          step={0.1}
+          value={local.value}
+          onChange={(_e, v) => setField("value", v as number)}
+          onChangeCommitted={flush}
+        />
+      </Box>
+    </ModifierFrame>
   );
 }
 
@@ -179,26 +219,13 @@ function PaletteModifierItem(props: {
   }, [commit, index, applyPaletteModifier]);
 
   return (
-    <ListItem alignItems="flex-start">
-      <ListItemIcon>
-        <IconButton onClick={() => onDelete(index)}>
-          <FontAwesomeIcon icon={faTrashCan} />
-        </IconButton>
-      </ListItemIcon>
-      <Box
-        sx={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.5em",
-        }}
-      >
-        <ListItemText
-          primary="Palette Adjustment"
-          secondary={`${modifier.layerNames.join(", ")} → ${
-            modifier.newLayerName
-          }`}
-        />
+    <ModifierFrame
+      index={index}
+      title="Palette Adjustment"
+      subtitle={`${modifier.layerNames.join(", ")} → ${modifier.newLayerName}`}
+      onDelete={onDelete}
+    >
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
         <HexColorPicker
           color={targetColor}
           onChange={(c) => {
@@ -246,7 +273,7 @@ function PaletteModifierItem(props: {
           Apply
         </Button>
       </Box>
-    </ListItem>
+    </ModifierFrame>
   );
 }
 
