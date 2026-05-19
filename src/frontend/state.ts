@@ -1,5 +1,9 @@
 import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
+import {
+  mergeLayerDownData,
+  remappedFrameLayer,
+} from "./processing/mergeLayers";
 import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
 import { ProcessingStep } from "./processing/systemTypes";
 import { create } from "zustand";
@@ -20,8 +24,6 @@ export type AsepriteSourceFile = {
 
 export type SourceFile = ProtospriteSourceFile | AsepriteSourceFile;
 
-export type TabName = "layers" | "animations" | "file";
-
 export type SpriteWithData = {
   sheet: ProtoSpriteSheet;
   sprite: ProtoSprite;
@@ -31,11 +33,12 @@ export type SpriteWithData = {
 
 export type SpriteStoreData = {
   sourceFile?: SourceFile;
-  currentTab: TabName;
   baseSprite?: SpriteWithData;
   currentSprite?: SpriteWithData;
   currentAnimationName?: string;
   currentFrame?: number;
+  // Whether animation playback is advancing (false = paused/scrubbing).
+  playing: boolean;
   selectedLayerNames?: Set<string>;
   visibleLayerNames?: Set<string>;
   modifiers: ProcessingStep[];
@@ -43,11 +46,12 @@ export type SpriteStoreData = {
     sourceFile: SourceFile;
     sprite: SpriteWithData;
   }) => void;
-  setCurrentTab: (tab: TabName) => void;
   toggleAllLayersSelected: () => void;
   toggleLayerSelected: (layerName: string) => void;
   toggleLayerVisible: (layerName: string) => void;
-  toggleAnimationSelected: (animationName: string) => void;
+  setAnimation: (animationName: string | null) => void;
+  setPlaying: (playing: boolean) => void;
+  gotoFrame: (frame: number) => void;
   setCurrentFrame: (frame: number) => void;
   pushModifier: (modifier: ProcessingStep) => void;
   updateModifier: (index: number, modifier: ProcessingStep) => void;
@@ -59,15 +63,23 @@ export type SpriteStoreData = {
   cancelEyedropper: () => void;
   applyEyedropperColor: (hex: string) => void;
   renameLayer: (oldName: string, newName: string) => void;
-  // Bakes the pipeline up to and including the palette modifier at `index`
-  // into the base sprite, then drops those (now-permanent) steps so the
-  // produced layer persists independently of the modifier list.
-  applyPaletteModifier: (index: number) => void;
+  // Reorders a layer by `direction` (-1 up / +1 down) in the base sprite,
+  // remapping every frame-layer/parent index and the per-layer draw index.
+  moveLayer: (name: string, direction: number) => void;
+  // Flattens `name` into the layer directly below it, removing the upper
+  // layer, then rebuilds + recomputes the base sprite.
+  mergeLayerDown: (name: string) => void;
+  // Removes the layer `name` (and its frame-layers) from the base sprite,
+  // reindexes, then recomputes.
+  deleteLayer: (name: string) => void;
+  // Bakes the pipeline up to and including the modifier at `index` into the
+  // base sprite, then drops those (now-permanent) steps so the result
+  // persists independently of the modifier list.
+  applyModifier: (index: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
-  Pick<SpriteStoreData, "currentTab" | "modifiers"> = {
-  currentTab: "layers",
+  Pick<SpriteStoreData, "modifiers"> = {
   modifiers: [],
 };
 
@@ -137,6 +149,7 @@ function scheduleRecompute() {
 export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
   eyedropperModifierIndex: null,
+  playing: true,
   onAfterLoad: (updates) => {
     recomputeGeneration++;
     set(() => ({
@@ -147,10 +160,6 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       eyedropperModifierIndex: null,
     }));
   },
-  setCurrentTab: (currentTab) =>
-    set(() => ({
-      currentTab,
-    })),
   toggleAllLayersSelected: () =>
     set((state) => {
       const allSelected =
@@ -202,17 +211,23 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
         visibleLayerNames,
       };
     }),
-  toggleAnimationSelected: (animationName) =>
+  setAnimation: (animationName) =>
     set((state) => {
       if (!state.currentSprite?.spriteThree) return state;
-      let currentAnimationName: string | null = animationName;
-      if (state.currentAnimationName === currentAnimationName) {
-        currentAnimationName = null;
-      }
-      state.currentSprite.spriteThree.gotoAnimation(currentAnimationName);
+      state.currentSprite.spriteThree.gotoAnimation(animationName);
       return {
-        currentAnimationName: currentAnimationName ?? undefined,
+        currentAnimationName: animationName ?? undefined,
+        playing: true,
       };
+    }),
+  setPlaying: (playing) => set(() => ({ playing })),
+  gotoFrame: (frame) =>
+    set((state) => {
+      const spriteThree = state.currentSprite?.spriteThree;
+      if (!spriteThree) return state;
+      spriteThree.gotoFrame(frame);
+      spriteThree.update();
+      return { currentFrame: frame, playing: false };
     }),
   setCurrentFrame: (frame) =>
     set(() => ({
@@ -244,15 +259,15 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   beginEyedropper: (index) =>
     set(() => ({ eyedropperModifierIndex: index })),
   cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
-  applyPaletteModifier: async (index) => {
+  applyModifier: async (index) => {
     const state = useSpriteStore.getState();
     const baseSprite = state.baseSprite;
     if (!baseSprite) return;
     const stepsSnapshot = state.modifiers;
     const target = stepsSnapshot[index];
-    if (!target || target.type !== "palette") return;
-    // Bake everything up to and including this step (the split depends on
-    // the pipeline output at this position).
+    if (!target) return;
+    // Bake everything up to and including this step (later steps may depend
+    // on the pipeline output at this position).
     const stepsToBake = stepsSnapshot.slice(0, index + 1);
     const baked = await processDataSteps(
       {
@@ -280,6 +295,108 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       },
       modifiers: s.modifiers.slice(index + 1),
       eyedropperModifierIndex: null,
+    }));
+    scheduleRecompute();
+  },
+  moveLayer: async (name, direction) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const sprite = baseSprite.sprite.data.clone();
+    const layers = sprite.layers;
+    const from = layers.findIndex((l) => l.name === name);
+    if (from < 0) return;
+    const to = from + (direction < 0 ? -1 : 1);
+    if (to < 0 || to >= layers.length) return;
+    [layers[from], layers[to]] = [layers[to], layers[from]];
+    // Frame-layers and parentIndex reference layers by array position; only
+    // the two swapped slots move.
+    const remap = (i: number) => (i === from ? to : i === to ? from : i);
+    for (let p = 0; p < layers.length; p++) {
+      // Draw order is layer.index * 0.05, so make it follow array order.
+      layers[p].index = p;
+      const parent = layers[p].parentIndex;
+      if (parent !== undefined) layers[p].parentIndex = remap(parent);
+    }
+    for (const frame of sprite.frames) {
+      for (const fl of frame.layers) {
+        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
+        fl.layerIndex = r.layerIndex;
+        fl.zIndex = r.zIndex;
+      }
+    }
+    const sheet = baseSprite.sheet.data.clone();
+    sheet.sprites[0] = sprite;
+    const three = await produceProtoSpriteThree({ sheet, sprite });
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+    }));
+    scheduleRecompute();
+  },
+  mergeLayerDown: async (name) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const merged = await mergeLayerDownData(
+      baseSprite.sheet.data,
+      baseSprite.sprite.data,
+      name,
+    );
+    if (!merged) return;
+    const three = await produceProtoSpriteThree(merged);
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+    }));
+    scheduleRecompute();
+  },
+  deleteLayer: async (name) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const sprite = baseSprite.sprite.data.clone();
+    const layers = sprite.layers;
+    if (layers.length <= 1) return;
+    const di = layers.findIndex((l) => l.name === name);
+    if (di < 0) return;
+    layers.splice(di, 1);
+    const remap = (i: number) => (i > di ? i - 1 : i);
+    for (let p = 0; p < layers.length; p++) {
+      layers[p].index = p;
+      const parent = layers[p].parentIndex;
+      layers[p].parentIndex =
+        parent === undefined || parent === di ? undefined : remap(parent);
+    }
+    for (const frame of sprite.frames) {
+      frame.layers = frame.layers.filter((fl) => fl.layerIndex !== di);
+      for (const fl of frame.layers) {
+        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
+        fl.layerIndex = r.layerIndex;
+        fl.zIndex = r.zIndex;
+      }
+    }
+    const sheet = baseSprite.sheet.data.clone();
+    sheet.sprites[0] = sprite;
+    const three = await produceProtoSpriteThree({ sheet, sprite });
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
     }));
     scheduleRecompute();
   },
@@ -349,10 +466,13 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       set(() => ({ eyedropperModifierIndex: null }));
       return;
     }
+    const targetColors = target.targetColors.includes(hex)
+      ? target.targetColors
+      : [...target.targetColors, hex];
     set((s) => ({
       modifiers: [
         ...s.modifiers.slice(0, index),
-        { ...target, targetColor: hex },
+        { ...target, targetColors },
         ...s.modifiers.slice(index + 1),
       ],
       eyedropperModifierIndex: null,

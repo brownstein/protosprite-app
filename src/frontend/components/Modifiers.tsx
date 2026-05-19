@@ -1,11 +1,13 @@
 import {
   Button,
   Collapse,
+  FormControlLabel,
   IconButton,
   Menu,
   MenuItem,
   Paper,
   Slider,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -128,6 +130,12 @@ function HsvModifierItem(props: {
 
   const flush = useCallback(() => commit.flush(), [commit]);
 
+  const applyModifier = useSpriteStore((s) => s.applyModifier);
+  const applyNow = useCallback(() => {
+    commit.clear();
+    applyModifier(index);
+  }, [commit, index, applyModifier]);
+
   return (
     <ModifierFrame
       index={index}
@@ -171,6 +179,9 @@ function HsvModifierItem(props: {
           onChangeCommitted={flush}
         />
       </Box>
+      <Button variant="contained" size="small" onClick={applyNow}>
+        Apply
+      </Button>
     </ModifierFrame>
   );
 }
@@ -183,7 +194,8 @@ function PaletteModifierItem(props: {
 }): React.ReactNode {
   const { modifier, index, onUpdate, onDelete } = props;
 
-  const [targetColor, setTargetColor] = useState(modifier.targetColor);
+  const [colors, setColors] = useState<string[]>(modifier.targetColors);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [tolerance, setTolerance] = useState(modifier.tolerance);
   const [newLayerName, setNewLayerName] = useState(modifier.newLayerName);
 
@@ -204,19 +216,33 @@ function PaletteModifierItem(props: {
   const eyedropperActive = useSpriteStore(
     (s) => s.eyedropperModifierIndex === index,
   );
-  const applyPaletteModifier = useSpriteStore(
-    (s) => s.applyPaletteModifier,
-  );
+  const applyModifier = useSpriteStore((s) => s.applyModifier);
 
-  // Reflect external targetColor changes (e.g. from the eyedropper).
+  // Reflect external targetColors changes (e.g. the eyedropper appends one).
   useEffect(() => {
-    setTargetColor(modifier.targetColor);
-  }, [modifier.targetColor]);
+    setColors(modifier.targetColors);
+    setActiveIndex((i) =>
+      Math.min(i, Math.max(0, modifier.targetColors.length - 1)),
+    );
+  }, [modifier.targetColors]);
+
+  const activeColor = colors[activeIndex] ?? colors[0] ?? "#000000";
+
+  // Structural color changes (add/remove) commit immediately; picker drags
+  // are debounced via `commit`.
+  const pushColors = useCallback(
+    (next: string[]) => {
+      commit.clear();
+      setColors(next);
+      onUpdate(index, { ...modifierRef.current, targetColors: next });
+    },
+    [commit, index, onUpdate],
+  );
 
   const applyNow = useCallback(() => {
     commit.clear();
-    applyPaletteModifier(index);
-  }, [commit, index, applyPaletteModifier]);
+    applyModifier(index);
+  }, [commit, index, applyModifier]);
 
   return (
     <ModifierFrame
@@ -226,13 +252,52 @@ function PaletteModifierItem(props: {
       onDelete={onDelete}
     >
       <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.35em" }}>
+          {colors.map((c, i) => (
+            <Box
+              key={i}
+              onClick={() => setActiveIndex(i)}
+              sx={{
+                width: 24,
+                height: 24,
+                borderRadius: "4px",
+                backgroundColor: c,
+                cursor: "pointer",
+                outline:
+                  i === activeIndex
+                    ? "2px solid #fff"
+                    : "1px solid rgba(255,255,255,0.4)",
+              }}
+            />
+          ))}
+        </Box>
         <HexColorPicker
-          color={targetColor}
+          color={activeColor}
           onChange={(c) => {
-            setTargetColor(c);
-            commit({ targetColor: c });
+            const next = colors.map((col, i) => (i === activeIndex ? c : col));
+            setColors(next);
+            commit({ targetColors: next });
           }}
         />
+        <Box sx={{ display: "flex", gap: "0.5em" }}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => pushColors([...colors, activeColor])}
+          >
+            Add color
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={colors.length <= 1}
+            onClick={() =>
+              pushColors(colors.filter((_, i) => i !== activeIndex))
+            }
+          >
+            Remove color
+          </Button>
+        </Box>
         <Button
           size="small"
           variant={eyedropperActive ? "contained" : "outlined"}
@@ -268,6 +333,22 @@ function PaletteModifierItem(props: {
               onUpdate(index, { ...modifierRef.current, newLayerName });
             }
           }}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={modifier.outlineVisible}
+              onChange={(e) => {
+                commit.clear();
+                onUpdate(index, {
+                  ...modifierRef.current,
+                  outlineVisible: e.target.checked,
+                });
+              }}
+            />
+          }
+          label="Show outline"
         />
         <Button variant="contained" size="small" onClick={applyNow}>
           Apply
@@ -309,9 +390,10 @@ export function Modifiers(): React.ReactNode {
     addModifier({
       type: "palette",
       layerNames: [...(selectedLayers ?? [])],
-      targetColor: "#ff0000",
+      targetColors: ["#ff0000"],
       tolerance: 24,
       newLayerName: `Palette ${n}`,
+      outlineVisible: true,
     });
   }, [currentSprite, modifiers, selectedLayers, addModifier]);
 

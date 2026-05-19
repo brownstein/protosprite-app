@@ -25,6 +25,7 @@ export function SpritePreview() {
   const applyEyedropperColor = useSpriteStore(
     (state) => state.applyEyedropperColor
   );
+  const playing = useSpriteStore((state) => state.playing);
   const scene = useMemo(() => new Scene(), []);
 
   // A palette modifier's layer is a live preview - highlighted here and
@@ -32,7 +33,10 @@ export function SpritePreview() {
   const paletteTempLayers = useMemo(
     () =>
       modifiers
-        .filter((m): m is PaletteProcessingStep => m.type === "palette")
+        .filter(
+          (m): m is PaletteProcessingStep =>
+            m.type === "palette" && m.outlineVisible
+        )
         .map((m) => m.newLayerName),
     [modifiers]
   );
@@ -71,9 +75,9 @@ export function SpritePreview() {
 
   const advance = useCallback(
     (ms: number) => {
-      currentSpriteThree?.advance(ms);
+      if (playing) currentSpriteThree?.advance(ms);
     },
-    [currentSpriteThree]
+    [currentSpriteThree, playing]
   );
 
   const onPickColor = useCallback(

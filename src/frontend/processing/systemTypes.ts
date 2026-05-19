@@ -16,14 +16,17 @@ export type PaletteProcessingStep = {
   type: "palette";
   // Source layers whose pixels are scanned for matches.
   layerNames: string[];
-  // Target colour as "#rrggbb".
-  targetColor: string;
+  // Target colours as "#rrggbb"; a pixel matches if it is within tolerance
+  // of ANY of these.
+  targetColors: string[];
   // 0..100; mapped to an RGB euclidean-distance threshold.
   tolerance: number;
   // Destination layer the matched pixels are moved into. While the modifier
   // exists this layer is a live preview (highlighted, hidden from the
   // selector); applying the modifier bakes it into the base sprite.
   newLayerName: string;
+  // Whether the preview outline/highlight for the new layer is shown.
+  outlineVisible: boolean;
 };
 
 export function isHSVProcessingStep(

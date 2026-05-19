@@ -12,7 +12,7 @@ import { Jimp } from "jimp";
 
 const MAX_RGB_DISTANCE = Math.sqrt(255 * 255 * 3);
 
-// Splits pixels within `tolerance` of `targetColor` (across the source
+// Splits pixels within `tolerance` of ANY `targetColors` (across the source
 // `layerNames`) out of their source layers and into a brand-new layer
 // (`newLayerName`). Matched pixels are MOVED: cleared from the source and
 // written into a freshly appended atlas region that the new layer's
@@ -20,7 +20,13 @@ const MAX_RGB_DISTANCE = Math.sqrt(255 * 255 * 3);
 export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
   type: "palette",
   applyStep: async (data: StepData, step: PaletteProcessingStep) => {
-    if (step.layerNames.length === 0 || !step.newLayerName) return data;
+    if (
+      step.layerNames.length === 0 ||
+      !step.newLayerName ||
+      step.targetColors.length === 0
+    ) {
+      return data;
+    }
 
     const sheetClone = data.sheet.clone();
     const spriteClone = data.sprite.clone();
@@ -35,7 +41,7 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
     const img = await getJimpData(sheetClone, spriteClone);
     if (!img) return null;
 
-    const target = parseHexColor(step.targetColor);
+    const targets = step.targetColors.map(parseHexColor);
     const threshold =
       (Math.max(0, Math.min(100, step.tolerance)) / 100) * MAX_RGB_DISTANCE;
     const thresholdSq = threshold * threshold;
@@ -77,10 +83,17 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
           const r = src[sIdx];
           const g = src[sIdx + 1];
           const b = src[sIdx + 2];
-          const dr = r - target.r;
-          const dg = g - target.g;
-          const db = b - target.b;
-          if (dr * dr + dg * dg + db * db > thresholdSq) continue;
+          let matched = false;
+          for (const target of targets) {
+            const dr = r - target.r;
+            const dg = g - target.g;
+            const db = b - target.b;
+            if (dr * dr + dg * dg + db * db <= thresholdSq) {
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) continue;
           // Copy the matched pixel into the new layer's region...
           const nIdx = ((region.y + dy) * width + (region.x + dx)) * 4;
           dst[nIdx] = r;
