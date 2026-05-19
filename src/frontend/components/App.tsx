@@ -6,6 +6,7 @@ import "@fontsource/roboto/700.css";
 import { ThemeProvider, createTheme } from "@mui/material";
 import { Layers } from "./Layers";
 import { Modifiers } from "./Modifiers";
+import { PaletteDisplay } from "./PaletteDisplay";
 import React from "react";
 import { SpritePreview } from "./SpritePrevew";
 import { TopBar } from "./TopBar";
@@ -21,7 +22,10 @@ export function App(): React.ReactElement {
     <div className="app">
       <ThemeProvider theme={darkTheme}>
         <TopBar />
-        <SpritePreview />
+        <div className="preview-row">
+          <SpritePreview />
+          <PaletteDisplay />
+        </div>
         <div className="config">
           <div className="config-row">
             <Layers />

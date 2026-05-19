@@ -80,6 +80,47 @@ export function getUniqueLayerRegions(
   return regions;
 }
 
+// Distinct opaque colours across `layerNames` in the current sheet, as
+// "#rrggbb". Returns { tooMany: true } as soon as more than `max` distinct
+// colours are found (so the caller can show "no palette detected"), or null
+// when there is no pixel data.
+export async function extractLayerPalette(
+  sheetData: Data.SpriteSheetData,
+  spriteData: Data.SpriteData,
+  layerNames: string[],
+  max = 1024,
+): Promise<{ tooMany: boolean; colors: string[] } | null> {
+  if (layerNames.length === 0) return { tooMany: false, colors: [] };
+  const jimpData = await getJimpData(sheetData, spriteData);
+  if (!jimpData) return null;
+  const data = jimpData.bitmap.data;
+  const width = jimpData.bitmap.width;
+  const height = jimpData.bitmap.height;
+  const regions = getUniqueLayerRegions(spriteData, layerNames);
+  const seen = new Set<number>();
+  for (const [pos, size] of regions) {
+    for (let dy = 0; dy < size.height; dy++) {
+      const sy = pos.y + dy;
+      if (sy < 0 || sy >= height) continue;
+      for (let dx = 0; dx < size.width; dx++) {
+        const sx = pos.x + dx;
+        if (sx < 0 || sx >= width) continue;
+        const idx = (sy * width + sx) * 4;
+        if (data[idx + 3] === 0) continue;
+        const packed =
+          (data[idx] << 16) | (data[idx + 1] << 8) | data[idx + 2];
+        if (seen.has(packed)) continue;
+        seen.add(packed);
+        if (seen.size > max) return { tooMany: true, colors: [] };
+      }
+    }
+  }
+  const colors = [...seen]
+    .sort((a, b) => a - b)
+    .map((p) => "#" + p.toString(16).padStart(6, "0"));
+  return { tooMany: false, colors };
+}
+
 export async function adjustLayerColorInImage(
   spriteData: Data.SpriteData,
   jimpData: JimpData,

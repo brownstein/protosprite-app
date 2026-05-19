@@ -17,6 +17,32 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.5);
 }
 
+.app .preview-row {
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 40vh;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.app .palette-display {
+  flex: 0 0 200px;
+  width: 200px;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-left: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 0.25em;
+  box-sizing: border-box;
+}
+
+.app .palette-msg {
+  opacity: 0.6;
+  font-size: 0.85em;
+  padding: 0.5em;
+}
+
 .app .config {
   flex-grow: 1;
   display: flex;
