@@ -33,7 +33,10 @@ export function SpritePreview() {
   const paletteTempLayers = useMemo(
     () =>
       modifiers
-        .filter((m): m is PaletteProcessingStep => m.type === "palette")
+        .filter(
+          (m): m is PaletteProcessingStep =>
+            m.type === "palette" && m.outlineVisible
+        )
         .map((m) => m.newLayerName),
     [modifiers]
   );

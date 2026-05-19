@@ -1,11 +1,13 @@
 import {
   Button,
   Collapse,
+  FormControlLabel,
   IconButton,
   Menu,
   MenuItem,
   Paper,
   Slider,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -325,6 +327,22 @@ function PaletteModifierItem(props: {
             }
           }}
         />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={modifier.outlineVisible}
+              onChange={(e) => {
+                commit.clear();
+                onUpdate(index, {
+                  ...modifierRef.current,
+                  outlineVisible: e.target.checked,
+                });
+              }}
+            />
+          }
+          label="Show outline"
+        />
         <Button variant="contained" size="small" onClick={applyNow}>
           Apply
         </Button>
@@ -368,6 +386,7 @@ export function Modifiers(): React.ReactNode {
       targetColors: ["#ff0000"],
       tolerance: 24,
       newLayerName: `Palette ${n}`,
+      outlineVisible: true,
     });
   }, [currentSprite, modifiers, selectedLayers, addModifier]);
 

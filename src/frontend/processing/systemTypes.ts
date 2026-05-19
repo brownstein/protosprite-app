@@ -25,6 +25,8 @@ export type PaletteProcessingStep = {
   // exists this layer is a live preview (highlighted, hidden from the
   // selector); applying the modifier bakes it into the base sprite.
   newLayerName: string;
+  // Whether the preview outline/highlight for the new layer is shown.
+  outlineVisible: boolean;
 };
 
 export function isHSVProcessingStep(
