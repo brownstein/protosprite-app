@@ -1,13 +1,29 @@
 import {
+  Button,
+  Collapse,
   IconButton,
+  Menu,
+  MenuItem,
   Paper,
   Slider,
+  TextField,
   Typography,
 } from "@mui/material";
-import React, { useCallback, useMemo } from "react";
+import {
+  HSVProcessingStep,
+  PaletteProcessingStep,
+  ProcessingStep,
+} from "../processing/systemTypes";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Box from "@mui/material/Box";
-import Checkbox from "@mui/material/Checkbox";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { HexColorPicker } from "react-colorful";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -17,6 +33,250 @@ import debounce from "debounce";
 import { faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import { useSpriteStore } from "../state";
 
+type HsvField = "hue" | "saturation" | "value";
+type HsvValues = { hue: number; saturation: number; value: number };
+
+// Debounce delay (ms) for committing drags to the store. Drags update local
+// UI state immediately; the store recompute is coalesced until the user
+// pauses, then flushed on release via onChangeCommitted.
+const COMMIT_DEBOUNCE_MS = 200;
+
+// Collapsible shell shared by every modifier list item: a header (delete +
+// expand toggle + title) over a Collapse-wrapped body of controls.
+function ModifierFrame(props: {
+  index: number;
+  title: string;
+  subtitle?: string;
+  onDelete: (index: number) => void;
+  children: React.ReactNode;
+}): React.ReactNode {
+  const { index, title, subtitle, onDelete, children } = props;
+  const [open, setOpen] = useState(true);
+  return (
+    <ListItem
+      disableGutters
+      sx={{ flexDirection: "column", alignItems: "stretch" }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+        <ListItemIcon sx={{ minWidth: "auto" }}>
+          <IconButton onClick={() => onDelete(index)}>
+            <FontAwesomeIcon icon={faTrashCan} />
+          </IconButton>
+        </ListItemIcon>
+        <ListItemButton onClick={() => setOpen((o) => !o)}>
+          <Box sx={{ width: "1.5em", userSelect: "none" }}>
+            {open ? "▾" : "▸"}
+          </Box>
+          <ListItemText primary={title} secondary={subtitle} />
+        </ListItemButton>
+      </Box>
+      <Collapse in={open} sx={{ width: "100%" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5em",
+            px: "1em",
+            pb: "0.5em",
+          }}
+        >
+          {children}
+        </Box>
+      </Collapse>
+    </ListItem>
+  );
+}
+
+function HsvModifierItem(props: {
+  modifier: HSVProcessingStep;
+  index: number;
+  onUpdate: (index: number, modifier: ProcessingStep) => void;
+  onDelete: (index: number) => void;
+}): React.ReactNode {
+  const { modifier, index, onUpdate, onDelete } = props;
+
+  const [local, setLocal] = useState<HsvValues>({
+    hue: modifier.hue,
+    saturation: modifier.saturation,
+    value: modifier.value,
+  });
+
+  // Always commit against the freshest modifier (layerNames etc. may change
+  // out from under us via other actions).
+  const modifierRef = useRef(modifier);
+  modifierRef.current = modifier;
+
+  const commit = useMemo(
+    () =>
+      debounce((next: HsvValues) => {
+        onUpdate(index, { ...modifierRef.current, ...next });
+      }, COMMIT_DEBOUNCE_MS),
+    [index, onUpdate],
+  );
+  useEffect(() => () => commit.clear(), [commit]);
+
+  const setField = useCallback(
+    (field: HsvField, v: number) => {
+      setLocal((prev) => {
+        const next = { ...prev, [field]: v };
+        commit(next);
+        return next;
+      });
+    },
+    [commit],
+  );
+
+  const flush = useCallback(() => commit.flush(), [commit]);
+
+  return (
+    <ModifierFrame
+      index={index}
+      title="Adjust Color"
+      subtitle={modifier.layerNames.join(", ")}
+      onDelete={onDelete}
+    >
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Hue</Typography>
+        <Slider
+          size="small"
+          min={-127}
+          max={127}
+          step={1}
+          value={local.hue}
+          onChange={(_e, v) => setField("hue", v as number)}
+          onChangeCommitted={flush}
+        />
+      </Box>
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Saturation</Typography>
+        <Slider
+          size="small"
+          min={-1}
+          max={1}
+          step={0.1}
+          value={local.saturation}
+          onChange={(_e, v) => setField("saturation", v as number)}
+          onChangeCommitted={flush}
+        />
+      </Box>
+      <Box style={{ width: "100%", position: "relative" }}>
+        <Typography>Value</Typography>
+        <Slider
+          size="small"
+          min={-1}
+          max={1}
+          step={0.1}
+          value={local.value}
+          onChange={(_e, v) => setField("value", v as number)}
+          onChangeCommitted={flush}
+        />
+      </Box>
+    </ModifierFrame>
+  );
+}
+
+function PaletteModifierItem(props: {
+  modifier: PaletteProcessingStep;
+  index: number;
+  onUpdate: (index: number, modifier: ProcessingStep) => void;
+  onDelete: (index: number) => void;
+}): React.ReactNode {
+  const { modifier, index, onUpdate, onDelete } = props;
+
+  const [targetColor, setTargetColor] = useState(modifier.targetColor);
+  const [tolerance, setTolerance] = useState(modifier.tolerance);
+  const [newLayerName, setNewLayerName] = useState(modifier.newLayerName);
+
+  const modifierRef = useRef(modifier);
+  modifierRef.current = modifier;
+
+  const commit = useMemo(
+    () =>
+      debounce((patch: Partial<PaletteProcessingStep>) => {
+        onUpdate(index, { ...modifierRef.current, ...patch });
+      }, COMMIT_DEBOUNCE_MS),
+    [index, onUpdate],
+  );
+  useEffect(() => () => commit.clear(), [commit]);
+
+  const beginEyedropper = useSpriteStore((s) => s.beginEyedropper);
+  const cancelEyedropper = useSpriteStore((s) => s.cancelEyedropper);
+  const eyedropperActive = useSpriteStore(
+    (s) => s.eyedropperModifierIndex === index,
+  );
+  const applyPaletteModifier = useSpriteStore(
+    (s) => s.applyPaletteModifier,
+  );
+
+  // Reflect external targetColor changes (e.g. from the eyedropper).
+  useEffect(() => {
+    setTargetColor(modifier.targetColor);
+  }, [modifier.targetColor]);
+
+  const applyNow = useCallback(() => {
+    commit.clear();
+    applyPaletteModifier(index);
+  }, [commit, index, applyPaletteModifier]);
+
+  return (
+    <ModifierFrame
+      index={index}
+      title="Palette Adjustment"
+      subtitle={`${modifier.layerNames.join(", ")} → ${modifier.newLayerName}`}
+      onDelete={onDelete}
+    >
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
+        <HexColorPicker
+          color={targetColor}
+          onChange={(c) => {
+            setTargetColor(c);
+            commit({ targetColor: c });
+          }}
+        />
+        <Button
+          size="small"
+          variant={eyedropperActive ? "contained" : "outlined"}
+          onClick={() =>
+            eyedropperActive ? cancelEyedropper() : beginEyedropper(index)
+          }
+        >
+          {eyedropperActive ? "Click sprite to pick…" : "Pick from sprite"}
+        </Button>
+        <Box>
+          <Typography>Tolerance</Typography>
+          <Slider
+            size="small"
+            min={0}
+            max={100}
+            step={1}
+            value={tolerance}
+            onChange={(_e, v) => {
+              setTolerance(v as number);
+              commit({ tolerance: v as number });
+            }}
+            onChangeCommitted={() => commit.flush()}
+          />
+        </Box>
+        <TextField
+          size="small"
+          label="New layer name"
+          value={newLayerName}
+          onChange={(e) => setNewLayerName(e.target.value)}
+          onBlur={() => {
+            if (newLayerName !== modifierRef.current.newLayerName) {
+              commit.clear();
+              onUpdate(index, { ...modifierRef.current, newLayerName });
+            }
+          }}
+        />
+        <Button variant="contained" size="small" onClick={applyNow}>
+          Apply
+        </Button>
+      </Box>
+    </ModifierFrame>
+  );
+}
+
 export function Modifiers(): React.ReactNode {
   const currentSprite = useSpriteStore((state) => state.currentSprite);
   const modifiers = useSpriteStore((state) => state.modifiers);
@@ -25,7 +285,9 @@ export function Modifiers(): React.ReactNode {
   const updateModifier = useSpriteStore((state) => state.updateModifier);
   const deleteModifier = useSpriteStore((state) => state.removeModifier);
 
-  const modifySelected = useCallback(() => {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const addAdjustColor = useCallback(() => {
     addModifier({
       type: "hsv",
       layerNames: [...(selectedLayers ?? [])],
@@ -34,6 +296,24 @@ export function Modifiers(): React.ReactNode {
       value: 0,
     });
   }, [selectedLayers, addModifier]);
+
+  const addPalette = useCallback(() => {
+    const used = new Set(
+      currentSprite?.sprite.data.layers.map((l) => l.name) ?? [],
+    );
+    for (const m of modifiers) {
+      if (m.type === "palette") used.add(m.newLayerName);
+    }
+    let n = 1;
+    while (used.has(`Palette ${n}`)) n++;
+    addModifier({
+      type: "palette",
+      layerNames: [...(selectedLayers ?? [])],
+      targetColor: "#ff0000",
+      tolerance: 24,
+      newLayerName: `Palette ${n}`,
+    });
+  }, [currentSprite, modifiers, selectedLayers, addModifier]);
 
   if (!currentSprite) return null;
 
@@ -48,80 +328,60 @@ export function Modifiers(): React.ReactNode {
     >
       <Paper>
         <List dense>
-          {modifiers.map((modifier, i) => (
-            <ListItem key={i}>
-              <ListItemIcon>
-                <IconButton onClick={() => deleteModifier(i)}>
-                  <FontAwesomeIcon icon={faTrashCan} />
-                </IconButton>
-              </ListItemIcon>
-              <ListItemText
-                sx={{
-                  width: "40%",
-                  maxWidth: "40%",
-                }}
-                primary="Adjust Color"
-                secondary={
-                  modifier.type === "hsv"
-                    ? modifier.layerNames.join(", ")
-                    : undefined
-                }
-              />
-              {modifier.type === "hsv" && (
-                <Box style={{ width: "50%", position: "relative" }}>
-                  <Box style={{ width: "100%", position: "relative" }}>
-                    <Typography>Hue</Typography>
-                    <Slider
-                      size="small"
-                      min={-127}
-                      max={127}
-                      step={1}
-                      value={modifier.hue}
-                      onChange={(_e, v) =>
-                        updateModifier(i, { ...modifier, hue: v })
-                      }
-                    />
-                  </Box>
-                  <Box style={{ width: "100%", position: "relative" }}>
-                    <Typography>Saturation</Typography>
-                    <Slider
-                      size="small"
-                      min={-1}
-                      max={1}
-                      step={0.1}
-                      value={modifier.saturation}
-                      onChange={(_e, v) =>
-                        updateModifier(i, {
-                          ...modifier,
-                          saturation: v,
-                        })
-                      }
-                    />
-                  </Box>
-                  <Box style={{ width: "100%", position: "relative" }}>
-                    <Typography>Value</Typography>
-                    <Slider
-                      size="small"
-                      min={-1}
-                      max={1}
-                      step={0.1}
-                      value={modifier.value}
-                      onChange={(_e, v) =>
-                        updateModifier(i, { ...modifier, value: v })
-                      }
-                    />
-                  </Box>
-                </Box>
-              )}
-            </ListItem>
-          ))}
+          {modifiers.map((modifier, i) => {
+            if (modifier.type === "hsv") {
+              return (
+                <HsvModifierItem
+                  key={i}
+                  modifier={modifier}
+                  index={i}
+                  onUpdate={updateModifier}
+                  onDelete={deleteModifier}
+                />
+              );
+            }
+            if (modifier.type === "palette") {
+              return (
+                <PaletteModifierItem
+                  key={i}
+                  modifier={modifier}
+                  index={i}
+                  onUpdate={updateModifier}
+                  onDelete={deleteModifier}
+                />
+              );
+            }
+            return null;
+          })}
           <ListItem>
             <ListItemButton
               disabled={!selectedLayers?.size}
-              onClick={modifySelected}
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
             >
               <ListItemText primary="Add Modifier" />
             </ListItemButton>
+            <Menu
+              anchorEl={menuAnchor}
+              open={!!menuAnchor}
+              onClose={() => setMenuAnchor(null)}
+            >
+              <MenuItem
+                onClick={() => {
+                  addAdjustColor();
+                  setMenuAnchor(null);
+                }}
+              >
+                Adjust Color
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  addPalette();
+                  setMenuAnchor(null);
+                }}
+              >
+                Palette Adjustment
+              </MenuItem>
+            </Menu>
           </ListItem>
         </List>
       </Paper>

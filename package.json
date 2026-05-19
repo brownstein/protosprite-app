@@ -72,6 +72,7 @@
     "protosprite-core": "^0.3.0",
     "protosprite-three": "^0.3.0",
     "react": "^19.2.0",
+    "react-colorful": "^5.7.0",
     "react-dom": "^19.2.0",
     "react-dropzone": "^14.3.8",
     "temp-dir": "^3.0.0",

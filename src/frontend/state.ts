@@ -52,6 +52,17 @@ export type SpriteStoreData = {
   pushModifier: (modifier: ProcessingStep) => void;
   updateModifier: (index: number, modifier: ProcessingStep) => void;
   removeModifier: (index: number) => void;
+  // Index of the palette modifier currently waiting for an eyedropper pick
+  // from the sprite preview (null when not picking).
+  eyedropperModifierIndex?: number | null;
+  beginEyedropper: (index: number) => void;
+  cancelEyedropper: () => void;
+  applyEyedropperColor: (hex: string) => void;
+  renameLayer: (oldName: string, newName: string) => void;
+  // Bakes the pipeline up to and including the palette modifier at `index`
+  // into the base sprite, then drops those (now-permanent) steps so the
+  // produced layer persists independently of the modifier list.
+  applyPaletteModifier: (index: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -60,15 +71,82 @@ export const initialSpriteStoreData: Partial<SpriteStoreData> &
   modifiers: [],
 };
 
-export const useSpriteStore = create<SpriteStoreData>()((set, get) => ({
+let recomputeGeneration = 0;
+let activeRun: Promise<void> | null = null;
+let recomputeDirty = false;
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+async function recomputeFromBase(generation: number) {
+  const { baseSprite, modifiers } = useSpriteStore.getState();
+  if (!baseSprite) return;
+  const updatedData = await processDataSteps(
+    {
+      sheet: baseSprite.sheet.data,
+      sprite: baseSprite.sprite.data,
+    },
+    modifiers,
+  );
+  if (generation !== recomputeGeneration || !updatedData) return;
+  const threeData = await produceProtoSpriteThree(updatedData);
+  if (generation !== recomputeGeneration || !threeData) return;
+  const sprite = threeData.spriteThree.data.sprite;
+  // Default any newly-created layers (e.g. from a palette split) to visible
+  // so they aren't accidentally hidden once the visibility set exists.
+  const { visibleLayerNames } = useSpriteStore.getState();
+  let nextVisible = visibleLayerNames;
+  if (visibleLayerNames) {
+    nextVisible = new Set(visibleLayerNames);
+    for (const layer of sprite.data.layers) {
+      if (!visibleLayerNames.has(layer.name)) nextVisible.add(layer.name);
+    }
+  }
+  useSpriteStore.setState({
+    currentSprite: {
+      sprite,
+      spriteThree: threeData.spriteThree,
+      sheet: threeData.sheetThree.sheet,
+      sheetThree: threeData.sheetThree,
+    },
+    visibleLayerNames: nextVisible,
+  });
+}
+
+// Debounce/serialize recomputes: only one runs at a time. When new changes
+// arrive while a recompute is in flight, wait for it to finish OR one second
+// (whichever comes first) before starting the next recompute from the latest
+// modifiers. The generation guard discards results from superseded runs.
+function scheduleRecompute() {
+  recomputeDirty = true;
+  if (activeRun) return;
+  activeRun = (async () => {
+    try {
+      while (recomputeDirty) {
+        recomputeDirty = false;
+        const generation = ++recomputeGeneration;
+        await Promise.race([recomputeFromBase(generation), sleep(1000)]);
+      }
+    } finally {
+      activeRun = null;
+    }
+  })();
+}
+
+export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   ...initialSpriteStoreData,
-  onAfterLoad: (updates) =>
+  eyedropperModifierIndex: null,
+  onAfterLoad: (updates) => {
+    recomputeGeneration++;
     set(() => ({
       sourceFile: updates.sourceFile,
       baseSprite: updates.sprite,
       currentSprite: updates.sprite,
-      modifiers: []
-    })),
+      modifiers: [],
+      eyedropperModifierIndex: null,
+    }));
+  },
   setCurrentTab: (currentTab) =>
     set(() => ({
       currentTab,
@@ -140,86 +218,145 @@ export const useSpriteStore = create<SpriteStoreData>()((set, get) => ({
     set(() => ({
       currentFrame: frame,
     })),
-  // TODO: refactor duplicate async logic.
-  pushModifier: async (modifier) => {
-    const currentState = get();
-    const modifiers = [...currentState.modifiers, modifier];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
-    }));
+  pushModifier: (modifier) => {
+    set((state) => ({ modifiers: [...state.modifiers, modifier] }));
+    scheduleRecompute();
   },
-  // TODO: refactor duplicate async logic.
-  updateModifier: async (index, modifier) => {
-    const currentState = get();
-    const modifiers = [
-      ...currentState.modifiers.slice(0, index),
-      modifier,
-      ...currentState.modifiers.slice(index + 1),
-    ];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
+  updateModifier: (index, modifier) => {
+    set((state) => ({
+      modifiers: [
+        ...state.modifiers.slice(0, index),
+        modifier,
+        ...state.modifiers.slice(index + 1),
+      ],
     }));
+    scheduleRecompute();
   },
-  // TODO: refactor duplicate async logic.
-  removeModifier: async (index) => {
-    const currentState = get();
-    const modifiers = [
-      ...currentState.modifiers.slice(0, index),
-      ...currentState.modifiers.slice(index + 1),
-    ];
-    set(() => ({ modifiers }));
-    if (!currentState.baseSprite) return;
-    const updatedData = await processDataSteps(
-      {
-        sheet: currentState.baseSprite.sheet.data,
-        sprite: currentState.baseSprite.sprite.data,
-      },
-      modifiers,
-    );
-    if (get().modifiers !== modifiers || !updatedData) return;
-    const threeData = await produceProtoSpriteThree(updatedData);
-    if (get().modifiers !== modifiers || !threeData) return;
-    set(() => ({
-      currentSprite: {
-        sprite: threeData.spriteThree.data.sprite,
-        spriteThree: threeData.spriteThree,
-        sheet: threeData.sheetThree.sheet,
-        sheetThree: threeData.sheetThree,
-      },
+  removeModifier: (index) => {
+    set((state) => ({
+      modifiers: [
+        ...state.modifiers.slice(0, index),
+        ...state.modifiers.slice(index + 1),
+      ],
     }));
+    scheduleRecompute();
+  },
+  beginEyedropper: (index) =>
+    set(() => ({ eyedropperModifierIndex: index })),
+  cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
+  applyPaletteModifier: async (index) => {
+    const state = useSpriteStore.getState();
+    const baseSprite = state.baseSprite;
+    if (!baseSprite) return;
+    const stepsSnapshot = state.modifiers;
+    const target = stepsSnapshot[index];
+    if (!target || target.type !== "palette") return;
+    // Bake everything up to and including this step (the split depends on
+    // the pipeline output at this position).
+    const stepsToBake = stepsSnapshot.slice(0, index + 1);
+    const baked = await processDataSteps(
+      {
+        sheet: baseSprite.sheet.data,
+        sprite: baseSprite.sprite.data,
+      },
+      stepsToBake,
+    );
+    // Abort if the pipeline changed while we worked, or the bake failed.
+    if (useSpriteStore.getState().modifiers !== stepsSnapshot || !baked) {
+      return;
+    }
+    const three = await produceProtoSpriteThree(baked);
+    if (useSpriteStore.getState().modifiers !== stepsSnapshot || !three) {
+      return;
+    }
+    // Supersede any in-flight recompute that still reads the old base.
+    recomputeGeneration++;
+    set((s) => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+      modifiers: s.modifiers.slice(index + 1),
+      eyedropperModifierIndex: null,
+    }));
+    scheduleRecompute();
+  },
+  renameLayer: (oldName, newName) => {
+    const next = newName.trim();
+    const state = useSpriteStore.getState();
+    if (!next || next === oldName) return;
+    // Reject collisions against the currently-visible layer set.
+    const existing = new Set(
+      state.currentSprite?.sprite.data.layers.map((l) => l.name) ?? [],
+    );
+    if (existing.has(next)) return;
+
+    // Rename in the base sprite (source of truth that modifiers replay from).
+    const renameInLayers = (layers?: { name: string }[]) => {
+      if (!layers) return;
+      for (const l of layers) if (l.name === oldName) l.name = next;
+    };
+    if (state.baseSprite) {
+      renameInLayers(state.baseSprite.sprite.data.layers);
+      renameInLayers(state.baseSprite.sheet.data.sprites?.[0]?.layers);
+    }
+
+    // Propagate to modifier source refs and palette destination names.
+    const modifiers: ProcessingStep[] = state.modifiers.map((m) => {
+      if (m.type === "hsv") {
+        return m.layerNames.includes(oldName)
+          ? {
+              ...m,
+              layerNames: m.layerNames.map((n) =>
+                n === oldName ? next : n,
+              ),
+            }
+          : m;
+      }
+      if (m.type === "palette") {
+        return {
+          ...m,
+          layerNames: m.layerNames.map((n) => (n === oldName ? next : n)),
+          newLayerName: m.newLayerName === oldName ? next : m.newLayerName,
+        };
+      }
+      return m;
+    });
+
+    const renameInSet = (s?: Set<string>) => {
+      if (!s || !s.has(oldName)) return s;
+      const renamed = new Set(s);
+      renamed.delete(oldName);
+      renamed.add(next);
+      return renamed;
+    };
+
+    set((s) => ({
+      modifiers,
+      selectedLayerNames: renameInSet(s.selectedLayerNames),
+      visibleLayerNames: renameInSet(s.visibleLayerNames),
+    }));
+    scheduleRecompute();
+  },
+  applyEyedropperColor: (hex) => {
+    const state = useSpriteStore.getState();
+    const index = state.eyedropperModifierIndex;
+    if (index == null) return;
+    const target = state.modifiers[index];
+    if (!target || target.type !== "palette") {
+      set(() => ({ eyedropperModifierIndex: null }));
+      return;
+    }
+    set((s) => ({
+      modifiers: [
+        ...s.modifiers.slice(0, index),
+        { ...target, targetColor: hex },
+        ...s.modifiers.slice(index + 1),
+      ],
+      eyedropperModifierIndex: null,
+    }));
+    scheduleRecompute();
   },
 }));

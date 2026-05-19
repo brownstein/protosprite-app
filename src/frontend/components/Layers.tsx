@@ -6,8 +6,9 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TextField,
 } from "@mui/material";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { faEye, faEyeSlash } from "@fortawesome/free-regular-svg-icons";
 import Checkbox from "@mui/material/Checkbox";
 import { Data } from "protosprite-core";
@@ -35,8 +36,31 @@ export function Layers(): React.ReactNode {
   const toggleAllLayersSelected = useSpriteStore(
     (state) => state.toggleAllLayersSelected,
   );
+  const modifiers = useSpriteStore((state) => state.modifiers);
+  const renameLayer = useSpriteStore((state) => state.renameLayer);
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const layers = useMemo(() => sprite?.data.layers, [sprite]);
+  // Hide palette preview layers from the selector until they are Applied
+  // (which bakes them into the base sprite and removes the modifier).
+  const displayLayers = useMemo(() => {
+    if (!layers) return layers;
+    const hidden = new Set<string>();
+    for (const m of modifiers) {
+      if (m.type === "palette") hidden.add(m.newLayerName);
+    }
+    return layers.filter((l) => !hidden.has(l.name));
+  }, [layers, modifiers]);
+
+  const commitRename = useCallback(
+    (oldName: string) => {
+      renameLayer(oldName, draft);
+      setEditing(null);
+    },
+    [renameLayer, draft],
+  );
   const layerFrames = useMemo(() => {
     const layerFrameMap = new Map<number, Data.FrameLayerData>();
     if (!currentFrame) return layerFrameMap;
@@ -56,7 +80,7 @@ export function Layers(): React.ReactNode {
     [spriteVisibleLayers],
   );
 
-  if (!layers || !sheetThree) return null;
+  if (!layers || !displayLayers || !sheetThree) return null;
 
   return (
     <Box sx={{ width: "calc(50% - 0.5em)", height: "100%", overflow: "auto" }}>
@@ -70,12 +94,12 @@ export function Layers(): React.ReactNode {
                   indeterminate={
                     (spriteSelectedLayers &&
                       !!spriteSelectedLayers.size &&
-                      spriteSelectedLayers.size !== layers.length) ||
+                      spriteSelectedLayers.size !== displayLayers.length) ||
                     false
                   }
                   checked={
                     (spriteSelectedLayers &&
-                      spriteSelectedLayers.size === layers.length) ||
+                      spriteSelectedLayers.size === displayLayers.length) ||
                     false
                   }
                   onChange={toggleAllLayersSelected}
@@ -93,7 +117,7 @@ export function Layers(): React.ReactNode {
             </TableRow>
           </TableHead>
           <TableBody>
-            {layers.map((layer) => (
+            {displayLayers.map((layer) => (
               <TableRow key={layer.index}>
                 <TableCell padding="checkbox">
                   <Checkbox
@@ -109,7 +133,32 @@ export function Layers(): React.ReactNode {
                     icon={<FontAwesomeIcon icon={faEyeSlash} />}
                   />
                 </TableCell>
-                <TableCell>{layer.name}</TableCell>
+                <TableCell
+                  onDoubleClick={() => {
+                    setEditing(layer.name);
+                    setDraft(layer.name);
+                  }}
+                >
+                  {editing === layer.name ? (
+                    <TextField
+                      size="small"
+                      variant="standard"
+                      autoFocus
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onBlur={() => commitRename(layer.name)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          commitRename(layer.name);
+                        } else if (e.key === "Escape") {
+                          setEditing(null);
+                        }
+                      }}
+                    />
+                  ) : (
+                    layer.name
+                  )}
+                </TableCell>
                 <TableCell>{layer.index}</TableCell>
                 <TableCell>
                   {layerFrames.get(layer.index)?.zIndex ?? 0}

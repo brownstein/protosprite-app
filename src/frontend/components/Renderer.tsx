@@ -7,13 +7,17 @@ type RendererIState = {
   onBeforeRender?: (ms: number) => void;
 }
 
+export type PickedColor = { r: number; g: number; b: number; a: number };
+
 export type RendererProps = {
   scene: Scene;
   onBeforeRender?: (ms: number) => void;
+  pickActive?: boolean;
+  onPickColor?: (color: PickedColor) => void;
 };
 
 export function Renderer(props: RendererProps) {
-  const { scene, onBeforeRender } = props;
+  const { scene, onBeforeRender, pickActive, onPickColor } = props;
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const iRendererState = useRef<RendererIState>({
@@ -33,7 +37,9 @@ export function Renderer(props: RendererProps) {
 
       renderer = new WebGLRenderer({
         canvas,
-        alpha: true
+        alpha: true,
+        // Required so a click can read back the rendered pixel (eyedropper).
+        preserveDrawingBuffer: true
       });
       rState.renderer = renderer;
       renderer.toneMapping = NoToneMapping;
@@ -147,6 +153,42 @@ export function Renderer(props: RendererProps) {
     init();
     return dispose;
   }, [scene]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !pickActive) return;
+    canvas.style.cursor = "crosshair";
+    const handler = (e: MouseEvent) => {
+      const renderer = iRendererState.current.renderer;
+      if (!renderer) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const gl = renderer.getContext();
+      const px = Math.floor(
+        ((e.clientX - rect.left) / rect.width) * canvas.width,
+      );
+      const py = Math.floor(
+        ((e.clientY - rect.top) / rect.height) * canvas.height,
+      );
+      const buf = new Uint8Array(4);
+      // readPixels origin is bottom-left, so flip Y.
+      gl.readPixels(
+        px,
+        canvas.height - py - 1,
+        1,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        buf,
+      );
+      onPickColor?.({ r: buf[0], g: buf[1], b: buf[2], a: buf[3] });
+    };
+    canvas.addEventListener("click", handler);
+    return () => {
+      canvas.removeEventListener("click", handler);
+      canvas.style.cursor = "";
+    };
+  }, [pickActive, onPickColor]);
 
   return (
     <canvas ref={canvasRef} className="renderer"/>
