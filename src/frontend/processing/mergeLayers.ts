@@ -4,6 +4,22 @@ import { Jimp } from "jimp";
 
 type Rect = { minX: number; minY: number; w: number; h: number };
 
+// Preserve a frame-layer's effective draw slot (layerIndex + zIndex) through
+// an index remap. Draw order in protosprite-three is
+// (layer.index + zIndex) * 0.05, so when layer indices shift, zIndex offsets
+// that cross the moved/removed layer must be adjusted to keep the same
+// relative depth.
+export function remappedFrameLayer(
+  oldPos: number,
+  zIndex: number,
+  remap: (n: number) => number,
+): { layerIndex: number; zIndex: number } {
+  return {
+    layerIndex: remap(oldPos),
+    zIndex: remap(oldPos + zIndex) - remap(oldPos),
+  };
+}
+
 // Straight-alpha source-over of one pixel onto the destination buffer.
 function srcOver(
   dst: Uint8Array | Buffer,
@@ -103,7 +119,9 @@ export async function mergeLayerDownData(
     template.sheetPosition.y = region.y;
     template.spritePosition.x = minX;
     template.spritePosition.y = minY;
-    template.zIndex = lowers[0]?.zIndex ?? uppers[0]?.zIndex ?? 0;
+    // Flattened content sits at the lower layer's plane; keep the lower
+    // layer's own offset (the final remap pass adjusts it like any other).
+    template.zIndex = lowers[0]?.zIndex ?? 0;
 
     frame.layers = frame.layers.filter(
       (fl) => fl.layerIndex !== ui && fl.layerIndex !== li,
@@ -154,7 +172,11 @@ export async function mergeLayerDownData(
   }
   for (const frame of sprite.frames) {
     frame.layers = frame.layers.filter((fl) => fl.layerIndex !== ui);
-    for (const fl of frame.layers) fl.layerIndex = remap(fl.layerIndex);
+    for (const fl of frame.layers) {
+      const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
+      fl.layerIndex = r.layerIndex;
+      fl.zIndex = r.zIndex;
+    }
   }
 
   return (await setJimpData(sheet, sprite, out as unknown as JimpData))

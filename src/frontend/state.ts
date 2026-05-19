@@ -1,9 +1,12 @@
 import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
+import {
+  mergeLayerDownData,
+  remappedFrameLayer,
+} from "./processing/mergeLayers";
 import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
 import { ProcessingStep } from "./processing/systemTypes";
 import { create } from "zustand";
-import { mergeLayerDownData } from "./processing/mergeLayers";
 
 export type ProtospriteSourceFile = {
   type: "protosprite";
@@ -315,7 +318,11 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       if (parent !== undefined) layers[p].parentIndex = remap(parent);
     }
     for (const frame of sprite.frames) {
-      for (const fl of frame.layers) fl.layerIndex = remap(fl.layerIndex);
+      for (const fl of frame.layers) {
+        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
+        fl.layerIndex = r.layerIndex;
+        fl.zIndex = r.zIndex;
+      }
     }
     const sheet = baseSprite.sheet.data.clone();
     sheet.sprites[0] = sprite;
@@ -372,7 +379,11 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
     }
     for (const frame of sprite.frames) {
       frame.layers = frame.layers.filter((fl) => fl.layerIndex !== di);
-      for (const fl of frame.layers) fl.layerIndex = remap(fl.layerIndex);
+      for (const fl of frame.layers) {
+        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
+        fl.layerIndex = r.layerIndex;
+        fl.zIndex = r.zIndex;
+      }
     }
     const sheet = baseSprite.sheet.data.clone();
     sheet.sprites[0] = sprite;
