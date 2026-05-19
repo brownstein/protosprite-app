@@ -31,8 +31,20 @@ export function TopBar() {
     [sprite],
   );
   const frameCount = sprite?.data.frames.length ?? 0;
-  const lastFrame = Math.max(0, frameCount - 1);
-  const frame = Math.min(currentFrame, lastFrame);
+  // Scale the transport to the selected animation's frame range; fall back
+  // to the whole sprite when no animation is selected.
+  const activeAnim = currentAnimationName
+    ? animations.find((a) => a.name === currentAnimationName)
+    : undefined;
+  const rangeStart = activeAnim ? activeAnim.indexStart : 0;
+  const rangeEnd = activeAnim
+    ? activeAnim.indexEnd
+    : Math.max(0, frameCount - 1);
+  const rangeLen = rangeEnd - rangeStart + 1;
+  const frame = Math.min(Math.max(currentFrame, rangeStart), rangeEnd);
+  // Arrow buttons wrap around within the range.
+  const prevFrame = frame <= rangeStart ? rangeEnd : frame - 1;
+  const nextFrame = frame >= rangeEnd ? rangeStart : frame + 1;
 
   const fileName = useMemo(() => {
     if (!sourceFile) return null;
@@ -98,32 +110,32 @@ export function TopBar() {
       </IconButton>
       <IconButton
         size="small"
-        disabled={!sprite || frame <= 0}
-        onClick={() => gotoFrame(Math.max(0, frame - 1))}
+        disabled={!sprite || rangeLen <= 1}
+        onClick={() => gotoFrame(prevFrame)}
         aria-label="Previous frame"
       >
         ◀
       </IconButton>
       <Slider
         size="small"
-        min={0}
-        max={lastFrame}
+        min={rangeStart}
+        max={rangeEnd}
         step={1}
         value={frame}
-        disabled={!sprite || frameCount <= 1}
+        disabled={!sprite || rangeLen <= 1}
         onChange={(_e, v) => gotoFrame(v as number)}
         sx={{ width: "10em" }}
       />
       <IconButton
         size="small"
-        disabled={!sprite || frame >= lastFrame}
-        onClick={() => gotoFrame(Math.min(lastFrame, frame + 1))}
+        disabled={!sprite || rangeLen <= 1}
+        onClick={() => gotoFrame(nextFrame)}
         aria-label="Next frame"
       >
         ▶
       </IconButton>
       <Typography variant="body2" sx={{ minWidth: "4em", textAlign: "right" }}>
-        {sprite ? `${frame + 1}/${frameCount}` : "-/-"}
+        {sprite ? `${frame - rangeStart + 1}/${rangeLen}` : "-/-"}
       </Typography>
     </Box>
   );
