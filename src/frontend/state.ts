@@ -46,7 +46,10 @@ export type SpriteStoreData = {
     sourceFile: SourceFile;
     sprite: SpriteWithData;
   }) => void;
-  toggleAllLayersSelected: () => void;
+  // Toggles selection of exactly `layerNames` (the layers the panel shows):
+  // selects them all, or clears the selection if they are already all
+  // selected.
+  toggleAllLayersSelected: (layerNames: string[]) => void;
   toggleLayerSelected: (layerName: string) => void;
   toggleLayerVisible: (layerName: string) => void;
   setAnimation: (animationName: string | null) => void;
@@ -160,21 +163,16 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       eyedropperModifierIndex: null,
     }));
   },
-  toggleAllLayersSelected: () =>
+  toggleAllLayersSelected: (layerNames) =>
     set((state) => {
+      const sel = state.selectedLayerNames;
       const allSelected =
-        state.selectedLayerNames?.size ===
-        state.currentSprite?.sprite?.countLayers();
-      if (allSelected) {
-        return {
-          ...state,
-          selectedLayerNames: new Set(),
-        };
-      }
+        layerNames.length > 0 &&
+        !!sel &&
+        sel.size === layerNames.length &&
+        layerNames.every((n) => sel.has(n));
       return {
-        selectedLayerNames: new Set(
-          state.currentSprite?.sprite?.data.layers.map((layer) => layer.name),
-        ),
+        selectedLayerNames: new Set<string>(allSelected ? [] : layerNames),
       };
     }),
   toggleLayerSelected: (layerName) =>

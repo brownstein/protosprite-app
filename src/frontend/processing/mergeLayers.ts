@@ -134,7 +134,9 @@ export async function mergeLayerDownData(
   // Allocate via Jimp (the Buffer global is not polyfilled for app code).
   const out = new Jimp({ width: newW, height: newH, color: 0x00000000 });
   const dst = out.bitmap.data;
-  // Copy the original atlas row-by-row (the canvas may be wider).
+  // Copy the original atlas row-by-row (the canvas may be wider). Composited
+  // output only ever goes into appended rows (y >= srcH), never back over
+  // the original image, so existing content is never re-blitted.
   for (let y = 0; y < srcH; y++) {
     dst.set(
       src.subarray(y * srcW * 4, (y * srcW + srcW) * 4),
@@ -143,6 +145,11 @@ export async function mergeLayerDownData(
   }
 
   for (const job of jobs) {
+    // Explicitly zero this appended region before compositing into it.
+    for (let dy = 0; dy < job.bbox.h; dy++) {
+      const rowStart = ((job.region.y + dy) * newW + job.region.x) * 4;
+      dst.fill(0, rowStart, rowStart + job.bbox.w * 4);
+    }
     for (const fl of job.sources) {
       const offX = job.region.x + (fl.spritePosition.x - job.bbox.minX);
       const offY = job.region.y + (fl.spritePosition.y - job.bbox.minY);
