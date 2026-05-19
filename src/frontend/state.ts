@@ -59,6 +59,9 @@ export type SpriteStoreData = {
   cancelEyedropper: () => void;
   applyEyedropperColor: (hex: string) => void;
   renameLayer: (oldName: string, newName: string) => void;
+  // Reorders a layer by `direction` (-1 up / +1 down) in the base sprite,
+  // remapping every frame-layer/parent index and the per-layer draw index.
+  moveLayer: (name: string, direction: number) => void;
   // Bakes the pipeline up to and including the palette modifier at `index`
   // into the base sprite, then drops those (now-permanent) steps so the
   // produced layer persists independently of the modifier list.
@@ -282,6 +285,43 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
       },
       modifiers: s.modifiers.slice(index + 1),
       eyedropperModifierIndex: null,
+    }));
+    scheduleRecompute();
+  },
+  moveLayer: async (name, direction) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const sprite = baseSprite.sprite.data.clone();
+    const layers = sprite.layers;
+    const from = layers.findIndex((l) => l.name === name);
+    if (from < 0) return;
+    const to = from + (direction < 0 ? -1 : 1);
+    if (to < 0 || to >= layers.length) return;
+    [layers[from], layers[to]] = [layers[to], layers[from]];
+    // Frame-layers and parentIndex reference layers by array position; only
+    // the two swapped slots move.
+    const remap = (i: number) => (i === from ? to : i === to ? from : i);
+    for (let p = 0; p < layers.length; p++) {
+      // Draw order is layer.index * 0.05, so make it follow array order.
+      layers[p].index = p;
+      const parent = layers[p].parentIndex;
+      if (parent !== undefined) layers[p].parentIndex = remap(parent);
+    }
+    for (const frame of sprite.frames) {
+      for (const fl of frame.layers) fl.layerIndex = remap(fl.layerIndex);
+    }
+    const sheet = baseSprite.sheet.data.clone();
+    sheet.sprites[0] = sprite;
+    const three = await produceProtoSpriteThree({ sheet, sprite });
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
     }));
     scheduleRecompute();
   },

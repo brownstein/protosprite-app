@@ -1,5 +1,6 @@
 import {
   Box,
+  IconButton,
   Paper,
   Table,
   TableBody,
@@ -38,6 +39,7 @@ export function Layers(): React.ReactNode {
   );
   const modifiers = useSpriteStore((state) => state.modifiers);
   const renameLayer = useSpriteStore((state) => state.renameLayer);
+  const moveLayer = useSpriteStore((state) => state.moveLayer);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -114,10 +116,11 @@ export function Layers(): React.ReactNode {
               <TableCell>Layer Name</TableCell>
               <TableCell>Index</TableCell>
               <TableCell>Z-Index</TableCell>
+              <TableCell>Order</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {displayLayers.map((layer) => (
+            {displayLayers.map((layer, rowIdx) => (
               <TableRow key={layer.index}>
                 <TableCell padding="checkbox">
                   <Checkbox
@@ -162,6 +165,24 @@ export function Layers(): React.ReactNode {
                 <TableCell>{layer.index}</TableCell>
                 <TableCell>
                   {layerFrames.get(layer.index)?.zIndex ?? 0}
+                </TableCell>
+                <TableCell padding="none" sx={{ whiteSpace: "nowrap" }}>
+                  <IconButton
+                    size="small"
+                    disabled={rowIdx === 0}
+                    onClick={() => moveLayer(layer.name, -1)}
+                    aria-label="Move layer up"
+                  >
+                    ▲
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    disabled={rowIdx === displayLayers.length - 1}
+                    onClick={() => moveLayer(layer.name, 1)}
+                    aria-label="Move layer down"
+                  >
+                    ▼
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
