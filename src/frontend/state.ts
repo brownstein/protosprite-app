@@ -66,10 +66,10 @@ export type SpriteStoreData = {
   // Flattens `name` into the layer directly below it, removing the upper
   // layer, then rebuilds + recomputes the base sprite.
   mergeLayerDown: (name: string) => void;
-  // Bakes the pipeline up to and including the palette modifier at `index`
-  // into the base sprite, then drops those (now-permanent) steps so the
-  // produced layer persists independently of the modifier list.
-  applyPaletteModifier: (index: number) => void;
+  // Bakes the pipeline up to and including the modifier at `index` into the
+  // base sprite, then drops those (now-permanent) steps so the result
+  // persists independently of the modifier list.
+  applyModifier: (index: number) => void;
 };
 
 export const initialSpriteStoreData: Partial<SpriteStoreData> &
@@ -253,15 +253,15 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
   beginEyedropper: (index) =>
     set(() => ({ eyedropperModifierIndex: index })),
   cancelEyedropper: () => set(() => ({ eyedropperModifierIndex: null })),
-  applyPaletteModifier: async (index) => {
+  applyModifier: async (index) => {
     const state = useSpriteStore.getState();
     const baseSprite = state.baseSprite;
     if (!baseSprite) return;
     const stepsSnapshot = state.modifiers;
     const target = stepsSnapshot[index];
-    if (!target || target.type !== "palette") return;
-    // Bake everything up to and including this step (the split depends on
-    // the pipeline output at this position).
+    if (!target) return;
+    // Bake everything up to and including this step (later steps may depend
+    // on the pipeline output at this position).
     const stepsToBake = stepsSnapshot.slice(0, index + 1);
     const baked = await processDataSteps(
       {

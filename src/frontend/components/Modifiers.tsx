@@ -130,6 +130,12 @@ function HsvModifierItem(props: {
 
   const flush = useCallback(() => commit.flush(), [commit]);
 
+  const applyModifier = useSpriteStore((s) => s.applyModifier);
+  const applyNow = useCallback(() => {
+    commit.clear();
+    applyModifier(index);
+  }, [commit, index, applyModifier]);
+
   return (
     <ModifierFrame
       index={index}
@@ -173,6 +179,9 @@ function HsvModifierItem(props: {
           onChangeCommitted={flush}
         />
       </Box>
+      <Button variant="contained" size="small" onClick={applyNow}>
+        Apply
+      </Button>
     </ModifierFrame>
   );
 }
@@ -207,9 +216,7 @@ function PaletteModifierItem(props: {
   const eyedropperActive = useSpriteStore(
     (s) => s.eyedropperModifierIndex === index,
   );
-  const applyPaletteModifier = useSpriteStore(
-    (s) => s.applyPaletteModifier,
-  );
+  const applyModifier = useSpriteStore((s) => s.applyModifier);
 
   // Reflect external targetColors changes (e.g. the eyedropper appends one).
   useEffect(() => {
@@ -234,8 +241,8 @@ function PaletteModifierItem(props: {
 
   const applyNow = useCallback(() => {
     commit.clear();
-    applyPaletteModifier(index);
-  }, [commit, index, applyPaletteModifier]);
+    applyModifier(index);
+  }, [commit, index, applyModifier]);
 
   return (
     <ModifierFrame
