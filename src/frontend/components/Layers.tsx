@@ -106,7 +106,9 @@ export function Layers(): React.ReactNode {
                       spriteSelectedLayers.size === displayLayers.length) ||
                     false
                   }
-                  onChange={toggleAllLayersSelected}
+                  onChange={() =>
+                    toggleAllLayersSelected(displayLayers.map((l) => l.name))
+                  }
                 />
               </TableCell>
               <TableCell
