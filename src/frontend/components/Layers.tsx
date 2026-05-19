@@ -40,6 +40,7 @@ export function Layers(): React.ReactNode {
   const modifiers = useSpriteStore((state) => state.modifiers);
   const renameLayer = useSpriteStore((state) => state.renameLayer);
   const moveLayer = useSpriteStore((state) => state.moveLayer);
+  const mergeLayerDown = useSpriteStore((state) => state.mergeLayerDown);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -182,6 +183,15 @@ export function Layers(): React.ReactNode {
                     aria-label="Move layer down"
                   >
                     ▼
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    disabled={rowIdx === displayLayers.length - 1}
+                    onClick={() => mergeLayerDown(layer.name)}
+                    aria-label="Merge layer down"
+                    title="Merge into the layer below"
+                  >
+                    ⤓
                   </IconButton>
                 </TableCell>
               </TableRow>

@@ -3,6 +3,7 @@ import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
 import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
 import { ProcessingStep } from "./processing/systemTypes";
 import { create } from "zustand";
+import { mergeLayerDownData } from "./processing/mergeLayers";
 
 export type ProtospriteSourceFile = {
   type: "protosprite";
@@ -62,6 +63,9 @@ export type SpriteStoreData = {
   // Reorders a layer by `direction` (-1 up / +1 down) in the base sprite,
   // remapping every frame-layer/parent index and the per-layer draw index.
   moveLayer: (name: string, direction: number) => void;
+  // Flattens `name` into the layer directly below it, removing the upper
+  // layer, then rebuilds + recomputes the base sprite.
+  mergeLayerDown: (name: string) => void;
   // Bakes the pipeline up to and including the palette modifier at `index`
   // into the base sprite, then drops those (now-permanent) steps so the
   // produced layer persists independently of the modifier list.
@@ -313,6 +317,28 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
     const sheet = baseSprite.sheet.data.clone();
     sheet.sprites[0] = sprite;
     const three = await produceProtoSpriteThree({ sheet, sprite });
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+    }));
+    scheduleRecompute();
+  },
+  mergeLayerDown: async (name) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const merged = await mergeLayerDownData(
+      baseSprite.sheet.data,
+      baseSprite.sprite.data,
+      name,
+    );
+    if (!merged) return;
+    const three = await produceProtoSpriteThree(merged);
     if (!three) return;
     recomputeGeneration++;
     set(() => ({
