@@ -41,6 +41,7 @@ export function Layers(): React.ReactNode {
   const renameLayer = useSpriteStore((state) => state.renameLayer);
   const moveLayer = useSpriteStore((state) => state.moveLayer);
   const mergeLayerDown = useSpriteStore((state) => state.mergeLayerDown);
+  const deleteLayer = useSpriteStore((state) => state.deleteLayer);
 
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -192,6 +193,15 @@ export function Layers(): React.ReactNode {
                     title="Merge into the layer below"
                   >
                     ⤓
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    disabled={displayLayers.length <= 1}
+                    onClick={() => deleteLayer(layer.name)}
+                    aria-label="Delete layer"
+                    title="Delete layer"
+                  >
+                    ✕
                   </IconButton>
                 </TableCell>
               </TableRow>

@@ -66,6 +66,9 @@ export type SpriteStoreData = {
   // Flattens `name` into the layer directly below it, removing the upper
   // layer, then rebuilds + recomputes the base sprite.
   mergeLayerDown: (name: string) => void;
+  // Removes the layer `name` (and its frame-layers) from the base sprite,
+  // reindexes, then recomputes.
+  deleteLayer: (name: string) => void;
   // Bakes the pipeline up to and including the modifier at `index` into the
   // base sprite, then drops those (now-permanent) steps so the result
   // persists independently of the modifier list.
@@ -339,6 +342,41 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
     );
     if (!merged) return;
     const three = await produceProtoSpriteThree(merged);
+    if (!three) return;
+    recomputeGeneration++;
+    set(() => ({
+      baseSprite: {
+        sprite: three.spriteThree.data.sprite,
+        spriteThree: three.spriteThree,
+        sheet: three.sheetThree.sheet,
+        sheetThree: three.sheetThree,
+      },
+    }));
+    scheduleRecompute();
+  },
+  deleteLayer: async (name) => {
+    const baseSprite = useSpriteStore.getState().baseSprite;
+    if (!baseSprite) return;
+    const sprite = baseSprite.sprite.data.clone();
+    const layers = sprite.layers;
+    if (layers.length <= 1) return;
+    const di = layers.findIndex((l) => l.name === name);
+    if (di < 0) return;
+    layers.splice(di, 1);
+    const remap = (i: number) => (i > di ? i - 1 : i);
+    for (let p = 0; p < layers.length; p++) {
+      layers[p].index = p;
+      const parent = layers[p].parentIndex;
+      layers[p].parentIndex =
+        parent === undefined || parent === di ? undefined : remap(parent);
+    }
+    for (const frame of sprite.frames) {
+      frame.layers = frame.layers.filter((fl) => fl.layerIndex !== di);
+      for (const fl of frame.layers) fl.layerIndex = remap(fl.layerIndex);
+    }
+    const sheet = baseSprite.sheet.data.clone();
+    sheet.sprites[0] = sprite;
+    const three = await produceProtoSpriteThree({ sheet, sprite });
     if (!three) return;
     recomputeGeneration++;
     set(() => ({
