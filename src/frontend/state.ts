@@ -1,12 +1,10 @@
 import ProtoSprite, { ProtoSpriteSheet } from "protosprite-core";
 import { ProtoSpriteSheetThree, ProtoSpriteThree } from "protosprite-three";
-import {
-  mergeLayerDownData,
-  remappedFrameLayer,
-} from "./processing/mergeLayers";
 import { processDataSteps, produceProtoSpriteThree } from "./processing/system";
 import { ProcessingStep } from "./processing/systemTypes";
 import { create } from "zustand";
+import { mergeLayerDownData } from "./processing/mergeLayers";
+import { reindexFrameLayers } from "./processing/reindexFrameLayers";
 
 export type ProtospriteSourceFile = {
   type: "protosprite";
@@ -306,21 +304,27 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
     const to = from + (direction < 0 ? -1 : 1);
     if (to < 0 || to >= layers.length) return;
     [layers[from], layers[to]] = [layers[to], layers[from]];
-    // Frame-layers and parentIndex reference layers by array position; only
-    // the two swapped slots move.
-    const remap = (i: number) => (i === from ? to : i === to ? from : i);
+    // Only the two adjacent slots move; parentIndex follows the swap.
+    const swap = (i: number) => (i === from ? to : i === to ? from : i);
     for (let p = 0; p < layers.length; p++) {
       // Draw order is layer.index * 0.05, so make it follow array order.
       layers[p].index = p;
       const parent = layers[p].parentIndex;
-      if (parent !== undefined) layers[p].parentIndex = remap(parent);
+      if (parent !== undefined) layers[p].parentIndex = swap(parent);
     }
+    // Model the move as removing the moved layer's frame-layers and re-adding
+    // them at its new slot; everything else keeps its visible position. The
+    // moved layer's frame-layers carry their own z across the move.
+    const newPosOf = (i: number) => (i === from ? null : i === to ? from : i);
     for (const frame of sprite.frames) {
-      for (const fl of frame.layers) {
-        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
-        fl.layerIndex = r.layerIndex;
-        fl.zIndex = r.zIndex;
-      }
+      const moved = frame.layers
+        .filter((fl) => fl.layerIndex === from)
+        .map((fl) => ({
+          frameLayer: fl,
+          newOwnerPos: to,
+          seedOffset: fl.zIndex,
+        }));
+      frame.layers = reindexFrameLayers(frame.layers, newPosOf, moved);
     }
     const sheet = baseSprite.sheet.data.clone();
     sheet.sprites[0] = sprite;
@@ -368,20 +372,18 @@ export const useSpriteStore = create<SpriteStoreData>()((set) => ({
     const di = layers.findIndex((l) => l.name === name);
     if (di < 0) return;
     layers.splice(di, 1);
-    const remap = (i: number) => (i > di ? i - 1 : i);
+    // Sidecar: the only removed old position is `di`.
+    const newPosOf = (i: number) => (i === di ? null : i > di ? i - 1 : i);
     for (let p = 0; p < layers.length; p++) {
       layers[p].index = p;
       const parent = layers[p].parentIndex;
       layers[p].parentIndex =
-        parent === undefined || parent === di ? undefined : remap(parent);
+        parent === undefined || parent === di
+          ? undefined
+          : (newPosOf(parent) ?? undefined);
     }
     for (const frame of sprite.frames) {
-      frame.layers = frame.layers.filter((fl) => fl.layerIndex !== di);
-      for (const fl of frame.layers) {
-        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
-        fl.layerIndex = r.layerIndex;
-        fl.zIndex = r.zIndex;
-      }
+      frame.layers = reindexFrameLayers(frame.layers, newPosOf);
     }
     const sheet = baseSprite.sheet.data.clone();
     sheet.sprites[0] = sprite;

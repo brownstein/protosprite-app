@@ -1,4 +1,8 @@
 import {
+  FrameLayerInsertion,
+  reindexFrameLayers,
+} from "./reindexFrameLayers";
+import {
   JimpData,
   getJimpData,
   getUniqueLayerRegions,
@@ -9,7 +13,6 @@ import {
 import { PaletteProcessingStep, StepData, StepProcessor } from "./systemTypes";
 import { Data } from "protosprite-core";
 import { Jimp } from "jimp";
-import { remappedFrameLayer } from "./mergeLayers";
 
 const MAX_RGB_DISTANCE = Math.sqrt(255 * 255 * 3);
 
@@ -205,8 +208,10 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
     const destOf = (layerName: string) =>
       splitPerLayer ? layerName : sourceNameSet.has(layerName) ? "" : null;
 
+    // No layers are removed; original layers shift by the insertion map.
+    const newPosOf = (p: number) => slotRemap(p);
     for (const frame of spriteClone.frames) {
-      const additions: Data.FrameLayerData[] = [];
+      const insertions: FrameLayerInsertion[] = [];
       const seen = new Set<string>();
       for (const fl of frame.layers) {
         const oldLayer = oldLayers[fl.layerIndex];
@@ -221,18 +226,18 @@ export const PaletteStepProcessor: StepProcessor<PaletteProcessingStep> = {
         if (seen.has(dedupe)) continue;
         seen.add(dedupe);
         const mirror = fl.clone();
-        mirror.layerIndex = nsPos;
-        mirror.zIndex = 0;
         mirror.sheetPosition.x = region.x;
         mirror.sheetPosition.y = region.y;
-        additions.push(mirror);
+        insertions.push({
+          frameLayer: mirror,
+          newOwnerPos: nsPos,
+          // A split layer sits directly above the source region it came
+          // from; the single combined layer floats at the top (generic
+          // placement at its appended-at-the-end position).
+          anchorAfter: splitPerLayer ? fl : undefined,
+        });
       }
-      for (const fl of frame.layers) {
-        const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, slotRemap);
-        fl.layerIndex = r.layerIndex;
-        fl.zIndex = r.zIndex;
-      }
-      frame.layers.push(...additions);
+      frame.layers = reindexFrameLayers(frame.layers, newPosOf, insertions);
     }
 
     // jimp's constructed-instance type and Jimp.read's return type are

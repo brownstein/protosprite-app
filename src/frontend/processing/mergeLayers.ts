@@ -1,24 +1,9 @@
 import { JimpData, getJimpData, setJimpData } from "./adjustColor";
 import { Data } from "protosprite-core";
 import { Jimp } from "jimp";
+import { reindexFrameLayers } from "./reindexFrameLayers";
 
 type Rect = { minX: number; minY: number; w: number; h: number };
-
-// Preserve a frame-layer's effective draw slot (layerIndex + zIndex) through
-// an index remap. Draw order in protosprite-three is
-// (layer.index + zIndex) * 0.05, so when layer indices shift, zIndex offsets
-// that cross the moved/removed layer must be adjusted to keep the same
-// relative depth.
-export function remappedFrameLayer(
-  oldPos: number,
-  zIndex: number,
-  remap: (n: number) => number,
-): { layerIndex: number; zIndex: number } {
-  return {
-    layerIndex: remap(oldPos),
-    zIndex: remap(oldPos + zIndex) - remap(oldPos),
-  };
-}
 
 // Straight-alpha source-over of one pixel onto the destination buffer.
 function srcOver(
@@ -77,6 +62,13 @@ export async function mergeLayerDownData(
     region: { x: number; y: number };
     bbox: Rect;
     sources: Data.FrameLayerData[];
+    frame: Data.FrameData;
+    // The composited frame-layer that replaces this frame's upper + lower
+    // frame-layers; spliced back in (with z re-derived) after reindexing.
+    composite: Data.FrameLayerData;
+    // The lower layer's own z offset; the flattened content sits on its
+    // plane, so the composite is seeded at that offset.
+    lowerZ: number;
   };
   const jobs: Job[] = [];
   let appendedH = 0;
@@ -101,32 +93,37 @@ export async function mergeLayerDownData(
     }
     const bbox: Rect = { minX, minY, w: maxX - minX, h: maxY - minY };
     if (bbox.w <= 0 || bbox.h <= 0) {
-      // Degenerate; just drop the upper frame-layers.
-      frame.layers = frame.layers.filter((fl) => fl.layerIndex !== ui);
+      // Degenerate; the upper frame-layers are dropped during reindex
+      // (newPosOf(ui) === null).
       continue;
     }
 
     const region = { x: 0, y: srcH + appendedH };
     appendedH += bbox.h;
     maxW = Math.max(maxW, bbox.w);
-    jobs.push({ region, bbox, sources });
 
-    const template = (lowers[0] ?? uppers[0]).clone();
-    template.layerIndex = li;
-    template.size.width = bbox.w;
-    template.size.height = bbox.h;
-    template.sheetPosition.x = region.x;
-    template.sheetPosition.y = region.y;
-    template.spritePosition.x = minX;
-    template.spritePosition.y = minY;
-    // Flattened content sits at the lower layer's plane; keep the lower
-    // layer's own offset (the final remap pass adjusts it like any other).
-    template.zIndex = lowers[0]?.zIndex ?? 0;
+    const composite = (lowers[0] ?? uppers[0]).clone();
+    composite.size.width = bbox.w;
+    composite.size.height = bbox.h;
+    composite.sheetPosition.x = region.x;
+    composite.sheetPosition.y = region.y;
+    composite.spritePosition.x = minX;
+    composite.spritePosition.y = minY;
 
+    jobs.push({
+      region,
+      bbox,
+      sources,
+      frame,
+      composite,
+      lowerZ: lowers[0]?.zIndex ?? 0,
+    });
+
+    // Drop this frame's upper + lower frame-layers; the composite replaces
+    // them and is spliced back in (with z re-derived) below.
     frame.layers = frame.layers.filter(
       (fl) => fl.layerIndex !== ui && fl.layerIndex !== li,
     );
-    frame.layers.push(template);
   }
 
   const newW = maxW;
@@ -168,22 +165,35 @@ export async function mergeLayerDownData(
   }
 
   // Remove the upper layer and reindex everything that referenced layers by
-  // array position.
+  // array position. Sidecar: the only removed old position is `ui`.
   layers.splice(ui, 1);
-  const remap = (i: number) => (i > ui ? i - 1 : i);
+  const newPosOf = (i: number) => (i === ui ? null : i > ui ? i - 1 : i);
   for (let p = 0; p < layers.length; p++) {
     layers[p].index = p;
     const parent = layers[p].parentIndex;
     layers[p].parentIndex =
-      parent === undefined || parent === ui ? undefined : remap(parent);
+      parent === undefined || parent === ui
+        ? undefined
+        : (newPosOf(parent) ?? undefined);
   }
+  const lowerNewPos = newPosOf(li) as number;
+  const jobByFrame = new Map<Data.FrameData, Job>();
+  for (const job of jobs) jobByFrame.set(job.frame, job);
   for (const frame of sprite.frames) {
-    frame.layers = frame.layers.filter((fl) => fl.layerIndex !== ui);
-    for (const fl of frame.layers) {
-      const r = remappedFrameLayer(fl.layerIndex, fl.zIndex, remap);
-      fl.layerIndex = r.layerIndex;
-      fl.zIndex = r.zIndex;
-    }
+    const job = jobByFrame.get(frame);
+    frame.layers = reindexFrameLayers(
+      frame.layers,
+      newPosOf,
+      job
+        ? [
+            {
+              frameLayer: job.composite,
+              newOwnerPos: lowerNewPos,
+              seedOffset: job.lowerZ,
+            },
+          ]
+        : [],
+    );
   }
 
   return (await setJimpData(sheet, sprite, out as unknown as JimpData))
