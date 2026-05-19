@@ -141,6 +141,8 @@ export function Layers(): React.ReactNode {
                   />
                 </TableCell>
                 <TableCell
+                  title="Double-click to rename"
+                  sx={{ cursor: "text" }}
                   onDoubleClick={() => {
                     setEditing(layer.name);
                     setDraft(layer.name);
@@ -171,6 +173,17 @@ export function Layers(): React.ReactNode {
                   {layerFrames.get(layer.index)?.zIndex ?? 0}
                 </TableCell>
                 <TableCell padding="none" sx={{ whiteSpace: "nowrap" }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setEditing(layer.name);
+                      setDraft(layer.name);
+                    }}
+                    aria-label="Rename layer"
+                    title="Rename layer"
+                  >
+                    ✎
+                  </IconButton>
                   <IconButton
                     size="small"
                     disabled={rowIdx === 0}
