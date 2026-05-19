@@ -32,6 +32,7 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import debounce from "debounce";
+import { extractLayerPalette } from "../processing/adjustColor";
 import { faTrashCan } from "@fortawesome/free-regular-svg-icons";
 import { useSpriteStore } from "../state";
 
@@ -244,6 +245,53 @@ function PaletteModifierItem(props: {
     applyModifier(index);
   }, [commit, index, applyModifier]);
 
+  // Palette of the source layers (from the base sprite, so it stays stable
+  // regardless of what this modifier has already split out).
+  const baseSprite = useSpriteStore((s) => s.baseSprite);
+  const [palette, setPalette] = useState<{
+    state: "none" | "tooMany" | "ok";
+    colors: string[];
+  }>({ state: "none", colors: [] });
+  const sourceLayerKey = modifier.layerNames.join(" ");
+
+  useEffect(() => {
+    if (!baseSprite || modifier.layerNames.length === 0) {
+      setPalette({ state: "none", colors: [] });
+      return;
+    }
+    let cancelled = false;
+    const sheet = baseSprite.sheet.data;
+    const sprite = baseSprite.sprite.data;
+    const names = sourceLayerKey ? sourceLayerKey.split(" ") : [];
+    const timer = setTimeout(() => {
+      extractLayerPalette(sheet, sprite, names).then((r) => {
+        if (cancelled) return;
+        if (!r || (!r.tooMany && r.colors.length === 0)) {
+          setPalette({ state: "none", colors: [] });
+        } else if (r.tooMany) {
+          setPalette({ state: "tooMany", colors: [] });
+        } else {
+          setPalette({ state: "ok", colors: r.colors });
+        }
+      });
+    }, 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [baseSprite, sourceLayerKey, modifier.layerNames.length]);
+
+  const paletteMode = palette.state === "ok";
+  const selectedSet = useMemo(() => new Set(colors), [colors]);
+  const togglePaletteColor = useCallback(
+    (c: string) => {
+      pushColors(
+        colors.includes(c) ? colors.filter((x) => x !== c) : [...colors, c],
+      );
+    },
+    [colors, pushColors],
+  );
+
   return (
     <ModifierFrame
       index={index}
@@ -252,52 +300,92 @@ function PaletteModifierItem(props: {
       onDelete={onDelete}
     >
       <Box sx={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.35em" }}>
-          {colors.map((c, i) => (
+        {paletteMode ? (
+          <>
+            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              Click palette colors to toggle selection
+            </Typography>
             <Box
-              key={i}
-              onClick={() => setActiveIndex(i)}
               sx={{
-                width: 24,
-                height: 24,
-                borderRadius: "4px",
-                backgroundColor: c,
-                cursor: "pointer",
-                outline:
-                  i === activeIndex
-                    ? "2px solid #fff"
-                    : "1px solid rgba(255,255,255,0.4)",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.25em",
+                maxHeight: "8em",
+                overflowY: "auto",
+              }}
+            >
+              {palette.colors.map((c) => (
+                <Box
+                  key={c}
+                  title={c}
+                  onClick={() => togglePaletteColor(c)}
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "3px",
+                    backgroundColor: c,
+                    cursor: "pointer",
+                    boxSizing: "border-box",
+                    border: selectedSet.has(c)
+                      ? "2px solid #fff"
+                      : "1px solid rgba(255,255,255,0.3)",
+                  }}
+                />
+              ))}
+            </Box>
+          </>
+        ) : (
+          <>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: "0.35em" }}>
+              {colors.map((c, i) => (
+                <Box
+                  key={i}
+                  onClick={() => setActiveIndex(i)}
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "4px",
+                    backgroundColor: c,
+                    cursor: "pointer",
+                    outline:
+                      i === activeIndex
+                        ? "2px solid #fff"
+                        : "1px solid rgba(255,255,255,0.4)",
+                  }}
+                />
+              ))}
+            </Box>
+            <HexColorPicker
+              color={activeColor}
+              onChange={(c) => {
+                const next = colors.map((col, i) =>
+                  i === activeIndex ? c : col,
+                );
+                setColors(next);
+                commit({ targetColors: next });
               }}
             />
-          ))}
-        </Box>
-        <HexColorPicker
-          color={activeColor}
-          onChange={(c) => {
-            const next = colors.map((col, i) => (i === activeIndex ? c : col));
-            setColors(next);
-            commit({ targetColors: next });
-          }}
-        />
-        <Box sx={{ display: "flex", gap: "0.5em" }}>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => pushColors([...colors, activeColor])}
-          >
-            Add color
-          </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={colors.length <= 1}
-            onClick={() =>
-              pushColors(colors.filter((_, i) => i !== activeIndex))
-            }
-          >
-            Remove color
-          </Button>
-        </Box>
+            <Box sx={{ display: "flex", gap: "0.5em" }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => pushColors([...colors, activeColor])}
+              >
+                Add color
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={colors.length <= 1}
+                onClick={() =>
+                  pushColors(colors.filter((_, i) => i !== activeIndex))
+                }
+              >
+                Remove color
+              </Button>
+            </Box>
+          </>
+        )}
         <Button
           size="small"
           variant={eyedropperActive ? "contained" : "outlined"}
