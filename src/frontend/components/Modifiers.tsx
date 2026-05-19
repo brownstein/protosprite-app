@@ -438,6 +438,22 @@ function PaletteModifierItem(props: {
           }
           label="Show outline"
         />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={modifier.splitPerLayer}
+              onChange={(e) => {
+                commit.clear();
+                onUpdate(index, {
+                  ...modifierRef.current,
+                  splitPerLayer: e.target.checked,
+                });
+              }}
+            />
+          }
+          label="Separate layer per source layer"
+        />
         <Button variant="contained" size="small" onClick={applyNow}>
           Apply
         </Button>
@@ -482,6 +498,7 @@ export function Modifiers(): React.ReactNode {
       tolerance: 24,
       newLayerName: `Palette ${n}`,
       outlineVisible: true,
+      splitPerLayer: false,
     });
   }, [currentSprite, modifiers, selectedLayers, addModifier]);
 

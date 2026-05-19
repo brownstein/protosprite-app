@@ -27,6 +27,10 @@ export type PaletteProcessingStep = {
   newLayerName: string;
   // Whether the preview outline/highlight for the new layer is shown.
   outlineVisible: boolean;
+  // When true (and multiple source layers), emit one split layer per source
+  // layer, each inserted directly after its source layer, instead of one
+  // combined layer appended at the end.
+  splitPerLayer: boolean;
 };
 
 export function isHSVProcessingStep(
